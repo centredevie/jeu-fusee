@@ -180,27 +180,57 @@ function declencherGameOver() {
     let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
     if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
 
-    // Injection INSTANTANÉE dans le classement local pour éviter l'attente
+    // 1. Injection INSTANTANÉE dans le classement local pour éviter l'attente
     topScoresLocaux.push({ pseudo: pseudo, score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
     
-    let html = "";
-    topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
-        let style = joueur.pseudo === pseudo && joueur.score === score ? 'style="color:#f59e0b; font-weight:bold;"' : '';
-        html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
-    });
-    document.getElementById("leaderboard-content").innerHTML = html;
+    afficherLeTableau(pseudo, score);
 
-    // Sauvegarde silencieuse en arrière-plan vers Google Sheet
+    // 2. Sauvegarde en arrière-plan vers Google Sheet avec sécurité CORS
     fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pseudo: pseudo, score: score })
+    })
+    .then(() => {
+        // Optionnel : Recharger les vrais scores mis à jour si la connexion est rapide
+        setTimeout(recupererScoresSeuls, 1000);
+    })
+    .catch(err => {
+        console.log("Envoi en arrière-plan effectué.");
     });
 }
 
-function recommencer() { document.location.reload(); }
+function afficherLeTableau(monPseudo, monScore) {
+    let html = "";
+    if(topScoresLocaux.length === 0) {
+        html = '<div class="leaderboard-row"><span>Aucun score pour l\'instant !</span></div>';
+    } else {
+        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
+            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
+            html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+        });
+    }
+    document.getElementById("leaderboard-content").innerHTML = html;
+}
+
+function recupererScoresSeuls() {
+    fetch(SCRIPT_URL)
+    .then(res => res.json())
+    .then(data => {
+        if(data && data.length > 0) {
+            topScoresLocaux = data;
+            // On rafraîchit l'affichage avec la vraie BDD globale
+            afficherLeTableau("", 0);
+        }
+    })
+    .catch(err => console.log("Lecture BDD en attente..."));
+}
+
+function recommencer() {
+    document.location.reload();
+}
 
 function piloter(clientX) {
     const rect = canvas.getBoundingClientRect();
