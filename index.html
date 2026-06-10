@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Montée en Puissance - Le Jeu</title>
     <style>
-        * { box-sizing: border-box; user-select: none; }
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
         body {
             margin: 0;
             background: #0d1117;
@@ -24,7 +24,7 @@
             height: 100vh;
             max-height: 800px;
             box-shadow: 0 0 30px rgba(0,0,0,0.8);
-            background: #111;
+            background: #0b0f19;
         }
         canvas { display: block; width: 100%; height: 100%; }
         
@@ -39,7 +39,7 @@
         #jauge-label { position: absolute; right: -45px; top: 210px; transform: rotate(-90deg); font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #f59e0b; }
 
         /* Écran Game Over */
-        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 15, 30, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 20px; text-align: center; }
+        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 15, 30, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 20px; text-align: center; z-index: 10; }
         .btn { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
         .leaderboard { width: 100%; max-width: 300px; margin: 20px 0; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; }
         .leaderboard-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -74,27 +74,33 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- CHARGEMENT SÉPARÉ DE VOS IMAGES ORIGINALES ---
+// --- GESTION DES IMAGES ---
 const imgFond = new Image(); imgFond.src = 'fond.jpg';
 const imgFusee = new Image(); imgFusee.src = 'fusee.png';
 
-let imagesChargees = 0;
-function auChargement() {
-    imagesChargees++;
-    if(imagesChargees === 2) { prechargerScores(); spawnItem(); gameLoop(); }
-}
-imgFond.onload = auChargement;
-imgFusee.onload = auChargement;
+let fondPret = false;
+let fuseePrete = false;
 
-// Variables globales
+imgFond.onload = () => { fondPret = true; };
+imgFusee.onload = () => { fuseePrete = true; };
+
+// Variables globales de jeu
 let score = 0; let gameSpeed = 4; let gameOver = false; let fondY = 0;
 let superJauge = 0; let estInvincible = false;
 const rocket = { x: 195, y: 620, width: 65, height: 115, targetX: 195 };
 let items = [];
-let topScoresLocaux = []; // Pour un affichage instantané
+let topScoresLocaux = []; 
+
+// Lancement immédiat du jeu sans attendre le réseau ou les fichiers
+prechargerScores();
+spawnItem();
+gameLoop();
 
 function prechargerScores() {
-    fetch(SCRIPT_URL).then(res => res.json()).then(data => { topScoresLocaux = data; }).catch(() => {});
+    fetch(SCRIPT_URL)
+    .then(res => res.json())
+    .then(data => { if(data) topScoresLocaux = data; })
+    .catch(() => {});
 }
 
 function spawnItem() {
@@ -116,7 +122,9 @@ function update() {
     fondY += gameSpeed * 0.6; if (fondY >= canvas.height) fondY = 0;
     gameSpeed += 0.002;
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
-    rocket.x += (rocket.targetX - rocket.x) * 0.16;
+    
+    // Déplacement fluide
+    rocket.x += (rocket.targetX - rocket.x) * 0.2;
 
     if (estInvincible) {
         superJauge -= 0.4;
@@ -137,7 +145,7 @@ function update() {
                 score += 25;
                 if (!estInvincible) {
                     superJauge = Math.min(100, superJauge + 20);
-                    if (superJauge >= 100) { estInvincible = true; canvas.style.filter = "saturate(2) contrast(1.2) drop-shadow(0px 0px 10px #f59e0b)"; }
+                    if (superJauge >= 100) { estInvincible = true; canvas.style.filter = "saturate(2) contrast(1.2)"; }
                 }
                 items.splice(i, 1);
             } else {
@@ -154,20 +162,31 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 1. Votre Fond d'écran défilant original
-    ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
-    ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
+    // 1. Fond d'écran (Minecraft si chargé, sinon Espace bleu nuit codé)
+    if (fondPret) {
+        ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
+        ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "#111827"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        for(let i=0; i<20; i++) { ctx.fillRect((i*37)%canvas.width, (i*93+fondY*2)%canvas.height, 2, 2); }
+    }
 
-    // 2. Obstacles☄️ et Piles🔋 en Émojis Pixel
-    ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    // 2. Obstacles☄️ et Piles🔋
+    ctx.font = "36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
     items.forEach(item => {
         ctx.fillText(item.emoji, item.x + item.width/2, item.y);
     });
 
-    // 3. Votre Fusée mascotte originale
-    if(estInvincible) { ctx.shadowBlur = 30; ctx.shadowColor = "#f59e0b"; }
-    ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-    ctx.shadowBlur = 0;
+    // 3. Fusée mascotte (Votre PNG si chargé, sinon émoji de secours)
+    if (fuseePrete) {
+        if(estInvincible) { ctx.shadowBlur = 30; ctx.shadowColor = "#f59e0b"; }
+        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
+        ctx.shadowBlur = 0;
+    } else {
+        ctx.font = "55px Arial";
+        ctx.fillText("🚀", rocket.x + rocket.width/2, rocket.y);
+    }
 }
 
 function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
@@ -180,32 +199,25 @@ function declencherGameOver() {
     let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
     if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
 
-    // 1. Injection INSTANTANÉE dans le classement local pour éviter l'attente
     topScoresLocaux.push({ pseudo: pseudo, score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
     
     afficherLeTableau(pseudo, score);
 
-    // 2. Sauvegarde en arrière-plan vers Google Sheet avec sécurité CORS
     fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pseudo: pseudo, score: score })
     })
-    .then(() => {
-        // Optionnel : Recharger les vrais scores mis à jour si la connexion est rapide
-        setTimeout(recupererScoresSeuls, 1000);
-    })
-    .catch(err => {
-        console.log("Envoi en arrière-plan effectué.");
-    });
+    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
+    .catch(() => {});
 }
 
 function afficherLeTableau(monPseudo, monScore) {
     let html = "";
     if(topScoresLocaux.length === 0) {
-        html = '<div class="leaderboard-row"><span>Aucun score pour l\'instant !</span></div>';
+        html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
     } else {
         topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
             let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
@@ -218,19 +230,11 @@ function afficherLeTableau(monPseudo, monScore) {
 function recupererScoresSeuls() {
     fetch(SCRIPT_URL)
     .then(res => res.json())
-    .then(data => {
-        if(data && data.length > 0) {
-            topScoresLocaux = data;
-            // On rafraîchit l'affichage avec la vraie BDD globale
-            afficherLeTableau("", 0);
-        }
-    })
-    .catch(err => console.log("Lecture BDD en attente..."));
+    .then(data => { if(data && data.length > 0) { topScoresLocaux = data; afficherLeTableau("", 0); } })
+    .catch(() => {});
 }
 
-function recommencer() {
-    document.location.reload();
-}
+function recommencer() { document.location.reload(); }
 
 function piloter(clientX) {
     const rect = canvas.getBoundingClientRect();
