@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Montée en Puissance - Le Jeu</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            margin: 0;
+            background: #0d1117;
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            max-height: 800px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            background: #111;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        /* HUD */
+        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; }
+        .hud-box { position: absolute; background: rgba(16, 24, 48, 0.85); padding: 8px 12px; border-radius: 6px; border: 2px solid #3b82f6; font-weight: bold; font-size: 16px; }
+        #score-box { top: 15px; left: 15px; }
+        #speed-box { top: 55px; left: 15px; }
+        
+        #jauge-container { position: absolute; right: 15px; top: 100px; width: 30px; height: 250px; background: rgba(16, 24, 48, 0.85); border: 2px solid #f59e0b; border-radius: 15px; overflow: hidden; display: flex; flex-direction: column-reverse; }
+        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #f59e0b, #ef4444); transition: height 0.2s ease; }
+        #jauge-label { position: absolute; right: -45px; top: 210px; transform: rotate(-90deg); font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #f59e0b; }
+
+        /* Écran Game Over */
+        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 15, 30, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 20px; text-align: center; }
+        .btn { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
+        .leaderboard { width: 100%; max-width: 300px; margin: 20px 0; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; }
+        .leaderboard-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-layer">
+            <div id="score-box" class="hud-box">PUISSANCE: <span id="scoreText">0</span> ⚡</div>
+            <div id="speed-box" class="hud-box">VITESSE: <span id="speedText">1.0x</span></div>
+            <div id="jauge-container"><div id="jauge-fill"></div><div id="jauge-label">Montée en puissance</div></div>
+        </div>
+
+        <div id="game-over-screen">
+            <h1 style="color: #ef4444; margin-bottom: 5px;">FIN DE TRANSMISSION</h1>
+            <p id="final-score-text" style="font-size: 20px; margin-top: 5px;">Votre score : 0</p>
+            <h3>🏆 TOP 5 DU WEEK-END</h3>
+            <div class="leaderboard" id="leaderboard-content">
+                <div class="leaderboard-row"><span>Chargement du classement...</span></div>
+            </div>
+            <button class="btn" onclick="recommencer()">RECOLLER AU DÉCOLLAGE</button>
+        </div>
+    </div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec"; 
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = 450;
+canvas.height = 800;
+
+// --- CHARGEMENT SÉPARÉ DE VOS IMAGES ORIGINALES ---
+const imgFond = new Image(); imgFond.src = 'fond.jpg';
+const imgFusee = new Image(); imgFusee.src = 'fusee.png';
+
+let imagesChargees = 0;
+function auChargement() {
+    imagesChargees++;
+    if(imagesChargees === 2) { prechargerScores(); spawnItem(); gameLoop(); }
+}
+imgFond.onload = auChargement;
+imgFusee.onload = auChargement;
+
+// Variables globales
+let score = 0; let gameSpeed = 4; let gameOver = false; let fondY = 0;
+let superJauge = 0; let estInvincible = false;
+const rocket = { x: 195, y: 620, width: 65, height: 115, targetX: 195 };
+let items = [];
+let topScoresLocaux = []; // Pour un affichage instantané
+
+function prechargerScores() {
+    fetch(SCRIPT_URL).then(res => res.json()).then(data => { topScoresLocaux = data; }).catch(() => {});
+}
+
+function spawnItem() {
+    if (gameOver) return;
+    let ratioObstacle = 0.65 + (gameSpeed * 0.01);
+    let typeChoisi = (Math.random() < ratioObstacle) ? "obstacle" : "booster";
+    items.push({
+        x: Math.random() * (canvas.width - 50),
+        y: -60,
+        width: 45, height: 45,
+        type: typeChoisi,
+        emoji: typeChoisi === "obstacle" ? "☄️" : "🔋"
+    });
+    setTimeout(spawnItem, Math.max(350, 1300 - (gameSpeed * 50)));
+}
+
+function update() {
+    if (gameOver) return;
+    fondY += gameSpeed * 0.6; if (fondY >= canvas.height) fondY = 0;
+    gameSpeed += 0.002;
+    document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
+    rocket.x += (rocket.targetX - rocket.x) * 0.16;
+
+    if (estInvincible) {
+        superJauge -= 0.4;
+        if (superJauge <= 0) { superJauge = 0; estInvincible = false; canvas.style.filter = "none"; }
+    }
+    document.getElementById("jauge-fill").style.height = superJauge + "%";
+
+    for (let i = items.length - 1; i >= 0; i--) {
+        items[i].y += gameSpeed;
+
+        // Collision box
+        if (rocket.x < items[i].x + items[i].width &&
+            rocket.x + rocket.width > items[i].x &&
+            rocket.y < items[i].y + items[i].height &&
+            rocket.y + rocket.height > items[i].y) {
+            
+            if (items[i].type === "booster") {
+                score += 25;
+                if (!estInvincible) {
+                    superJauge = Math.min(100, superJauge + 20);
+                    if (superJauge >= 100) { estInvincible = true; canvas.style.filter = "saturate(2) contrast(1.2) drop-shadow(0px 0px 10px #f59e0b)"; }
+                }
+                items.splice(i, 1);
+            } else {
+                if (!estInvincible) { declencherGameOver(); } 
+                else { score += 50; items.splice(i, 1); }
+            }
+            document.getElementById("scoreText").innerText = score;
+            continue;
+        }
+        if (items[i].y > canvas.height) { items.splice(i, 1); score += 1; document.getElementById("scoreText").innerText = score; }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 1. Votre Fond d'écran défilant original
+    ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
+    ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
+
+    // 2. Obstacles☄️ et Piles🔋 en Émojis Pixel
+    ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    items.forEach(item => {
+        ctx.fillText(item.emoji, item.x + item.width/2, item.y);
+    });
+
+    // 3. Votre Fusée mascotte originale
+    if(estInvincible) { ctx.shadowBlur = 30; ctx.shadowColor = "#f59e0b"; }
+    ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
+    ctx.shadowBlur = 0;
+}
+
+function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
+
+function declencherGameOver() {
+    gameOver = true;
+    document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
+    document.getElementById("game-over-screen").style.display = "flex";
+    
+    let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
+    if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
+
+    // Injection INSTANTANÉE dans le classement local pour éviter l'attente
+    topScoresLocaux.push({ pseudo: pseudo, score: score });
+    topScoresLocaux.sort((a, b) => b.score - a.score);
+    
+    let html = "";
+    topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
+        let style = joueur.pseudo === pseudo && joueur.score === score ? 'style="color:#f59e0b; font-weight:bold;"' : '';
+        html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+    });
+    document.getElementById("leaderboard-content").innerHTML = html;
+
+    // Sauvegarde silencieuse en arrière-plan vers Google Sheet
+    fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pseudo: pseudo, score: score })
+    });
+}
+
+function recommencer() { document.location.reload(); }
+
+function piloter(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    let echelle = canvas.width / rect.width;
+    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * echelle) - rocket.width / 2));
+}
+window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
+window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
+</script>
+</body>
+</html>
