@@ -190,8 +190,7 @@ imgFond.onload = () => { fondPret = true; };
 imgMeteorite.onload = () => { meteoritePrete = true; };
 imgBooster.onload = () => { boosterPret = true; };
 
-// --- CORRECTION FORMAT FUSÉE ---
-// On réduit la largeur de base à 60 pixels pour que le ratio élancé (234x646) la rende fine et élégante
+// --- CORRECTION FORMAT FUSÉE (Fine et élancée) ---
 const rocketBaseW = 60; 
 
 const rocket = {
@@ -215,7 +214,9 @@ let score = 0;
 let gameSpeed = 4;
 let gameOver = false;
 
-let fondY = 0; 
+// --- CORRECTION VARIABLES DE DEFILEMENT ---
+let defilementInitial = 0; 
+let boucleCielY = 0;
 let phaseBoucleCiel = false;
 
 // Énergie
@@ -284,25 +285,21 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    if (fondPret && imgFond.naturalWidth > 0) {
+    // --- LOGIQUE DE DÉFILEMENT SÉCURISÉE ---
+    if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
         let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
-        
-        // Sécurité anti-crash si le calcul renvoie une valeur invalide au départ
-        if (hauteurTotaleAffichee > 0) {
-            let limiteTransition = hauteurTotaleAffichee - canvas.height;
+        let limiteTransition = hauteurTotaleAffichee - canvas.height;
 
-            if (!phaseBoucleCiel) {
-                fondY += gameSpeed * 0.4;
-                if (fondY >= limiteTransition) {
-                    phaseBoucleCiel = true;
-                    fondY = 0; // On réinitialise pour entamer proprement la boucle du ciel
-                }
-            } else {
-                fondY += gameSpeed * 0.4;
-                if (fondY >= canvas.height) {
-                    fondY = 0;
-                }
+        if (!phaseBoucleCiel) {
+            defilementInitial += gameSpeed * 0.4;
+            if (defilementInitial >= limiteTransition) {
+                phaseBoucleCiel = true;
+            }
+        } else {
+            boucleCielY += gameSpeed * 0.4;
+            if (boucleCielY >= canvas.height) {
+                boucleCielY = 0;
             }
         }
     }
@@ -363,21 +360,22 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (fondPret && imgFond.naturalWidth > 0) {
+    // --- RENDU LOGIQUE ET SECURISE ---
+    if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
 
         if (!phaseBoucleCiel) {
-            // Phase Décollage : Glisse linéaire du bas vers le haut
-            let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (fondY / echelleFond);
+            // Phase Décollage : On glisse du bas de l'image vers le haut
+            let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (defilementInitial / echelleFond);
             ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
         } else {
-            // Phase Ciel Infini : Boucle fluide uniquement sur le haut de l'image (le ciel)
-            let yRelatif = (fondY % canvas.height);
+            // Phase Ciel Infini : On boucle uniquement sur le très haut de l'image (le ciel bleu infini)
+            let yRelatif = boucleCielY;
             ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
             ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
         }
     } else {
-        ctx.fillStyle = "#111827";
+        ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
@@ -385,4 +383,96 @@ function draw() {
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (meteoritePrete) {
-                ctx.drawImage(imgMeteorite, item.x, item.y, item.width,
+                ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height);
+            } else {
+                ctx.font = "40px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+                ctx.fillText("☄️", item.x + item.width / 2, item.y);
+            }
+        } else {
+            if (boosterPret) {
+                ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height);
+            } else {
+                ctx.font = "36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+                ctx.fillText("🔋", item.x + item.width / 2, item.y);
+            }
+        }
+    });
+
+    // Fusée Mascotte (calibrée fine)
+    if (fuseePrete) {
+        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
+    } else {
+        ctx.font = "55px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        ctx.fillText("🚀", rocket.x + rocket.width / 2, rocket.y);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    if (!gameOver) requestAnimationFrame(gameLoop);
+}
+
+function declencherGameOver() {
+    gameOver = true;
+    document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
+    document.getElementById("game-over-screen").style.display = "flex";
+    
+    let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
+    if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
+
+    topScoresLocaux.push({ pseudo: pseudo, score: score });
+    topScoresLocaux.sort((a, b) => b.score - a.score);
+    
+    afficherLeTableau(pseudo, score);
+
+    fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pseudo: pseudo, score: score })
+    })
+    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
+    .catch(() => {});
+}
+
+function afficherLeTableau(monPseudo, monScore) {
+    let html = "";
+    if(topScoresLocaux.length === 0) {
+        html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
+    } else {
+        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
+            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
+            html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+        });
+    }
+    document.getElementById("leaderboard-content").innerHTML = html;
+}
+
+function recupererScoresSeuls() {
+    fetch(SCRIPT_URL)
+    .then(res => res.json())
+    .then(data => { 
+        if(data && data.length > 0) { 
+            topScoresLocaux = data;
+            topScoresLocaux.sort((a, b) => b.score - a.score);
+            afficherLeTableau("", 0); 
+        } 
+    })
+    .catch(() => {});
+}
+
+function recommencer() { document.location.reload(); }
+
+function piloter(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    let echelle = canvas.width / rect.width;
+    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * echelle) - rocket.width / 2));
+}
+window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
+window.addEventListener("touchmove", (e) => { 
+    if(e.touches.length > 0) piloter(e.touches[0].clientX); 
+}, { passive: false });
+</script>
+</body>
+</html>
