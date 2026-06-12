@@ -3,52 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en Puissance - Le Jeu</title>
+    <title>Montée en Puissance - 3D</title>
     <style>
         * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
-        body {
-            margin: 0;
-            background: #0d1117;
-            color: white;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-        #game-container {
-            position: relative;
-            width: 100%;
-            max-width: 450px;
-            height: 100vh;
-            max-height: 800px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
-            background: #0b0f19;
-        }
-        canvas { display: block; width: 100%; height: 100%; }
+        body { margin: 0; background: #0d1117; color: white; font-family: 'Segoe UI', Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        #game-container { position: relative; width: 100%; max-width: 450px; height: 100vh; max-height: 800px; box-shadow: 0 0 30px rgba(0,0,0,0.8); background: #111; }
         
-        /* HUD */
-        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; }
-        .hud-box { position: absolute; background: rgba(16, 24, 48, 0.85); padding: 8px 12px; border-radius: 6px; border: 2px solid #3b82f6; font-weight: bold; font-size: 16px; }
+        /* HUD Style Maquette */
+        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; z-index: 5; }
+        .hud-box { position: absolute; background: rgba(14, 23, 41, 0.75); padding: 10px 14px; border-radius: 6px; border: 2px solid #38bdf8; font-weight: bold; font-size: 16px; backdrop-filter: blur(4px); }
         #score-box { top: 15px; left: 15px; }
-        #speed-box { top: 55px; left: 15px; }
+        #speed-box { top: 60px; left: 15px; }
         
-        #jauge-container { position: absolute; right: 15px; top: 100px; width: 30px; height: 250px; background: rgba(16, 24, 48, 0.85); border: 2px solid #f59e0b; border-radius: 15px; overflow: hidden; display: flex; flex-direction: column-reverse; }
-        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #f59e0b, #ef4444); transition: height 0.2s ease; }
-        #jauge-label { position: absolute; right: -45px; top: 210px; transform: rotate(-90deg); font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #f59e0b; }
+        /* Super Jauge */
+        #jauge-container { position: absolute; right: 15px; top: 100px; width: 26px; height: 280px; background: rgba(14, 23, 41, 0.75); border: 2px solid #f59e0b; border-radius: 13px; overflow: hidden; display: flex; flex-direction: column-reverse; backdrop-filter: blur(4px); }
+        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #fbbf24, #ef4444); transition: height 0.1s linear; }
+        #jauge-label { position: absolute; right: -52px; top: 230px; transform: rotate(-90deg); font-size: 10px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; color: #fbbf24; }
 
-        /* Écran Game Over */
-        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 15, 30, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 20px; text-align: center; z-index: 10; }
-        .btn { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
-        .leaderboard { width: 100%; max-width: 300px; margin: 20px 0; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; }
-        .leaderboard-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        /* Game Over */
+        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(9, 13, 26, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 25px; text-align: center; z-index: 10; }
+        .btn { background: #2563eb; color: white; border: none; padding: 14px 28px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4); }
+        .leaderboard { width: 100%; max-width: 320px; margin: 20px 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; }
+        .leaderboard-row { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.06); }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
     <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
         <div id="ui-layer">
             <div id="score-box" class="hud-box">PUISSANCE: <span id="scoreText">0</span> ⚡</div>
             <div id="speed-box" class="hud-box">VITESSE: <span id="speedText">1.0x</span></div>
@@ -57,151 +39,219 @@
 
         <div id="game-over-screen">
             <h1 style="color: #ef4444; margin-bottom: 5px;">FIN DE TRANSMISSION</h1>
-            <p id="final-score-text" style="font-size: 20px; margin-top: 5px;">Votre score : 0</p>
+            <p id="final-score-text" style="font-size: 22px; color: #fbbf24; margin-top: 5px; font-weight: bold;">Votre score : 0</p>
             <h3>🏆 TOP 5 DU WEEK-END</h3>
             <div class="leaderboard" id="leaderboard-content">
-                <div class="leaderboard-row"><span>Chargement du classement...</span></div>
+                <div class="leaderboard-row"><span>Chargement...</span></div>
             </div>
             <button class="btn" onclick="recommencer()">RECOLLER AU DÉCOLLAGE</button>
         </div>
     </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec";
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-canvas.width = 450;
-canvas.height = 800;
+// --- CONFIGURATION SÉCURISÉE DES IMAGES (Anti-blocage GitHub) ---
+const loc = window.location.href.replace('index.html', '');
+const URL_FOND = loc + "fond.jpg";
+const URL_FUSEE = loc + "fusee.png";
 
-// --- GESTION DES IMAGES ---
-const imgFond = new Image(); imgFond.src = 'fond.jpg';
-const imgFusee = new Image(); imgFusee.src = 'fusee.png';
-
-let fondPret = false;
-let fuseePrete = false;
-
-imgFond.onload = () => { fondPret = true; };
-imgFusee.onload = () => { fuseePrete = true; };
-
-// Variables globales de jeu
-let score = 0; let gameSpeed = 4; let gameOver = false; let fondY = 0;
+let score = 0; let gameSpeed = 0.15; let gameOver = false;
 let superJauge = 0; let estInvincible = false;
-const rocket = { x: 195, y: 620, width: 65, height: 115, targetX: 195 };
-let items = [];
-let topScoresLocaux = []; 
+let items = []; let topScoresLocaux = [];
 
-// Lancement immédiat du jeu sans attendre le réseau ou les fichiers
+// 1. INITIALISATION DU MONDE 3D
+const container = document.getElementById('game-container');
+const scene = new THREE.Scene();
+
+// Caméra orientée vers le bas pour l'effet de plongée de la maquette
+const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+camera.position.set(0, 0, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.insertBefore(renderer.domElement, container.firstChild);
+
+// 2. ÉCLAIRAGE CONSTANT (Lumière du jour Minecraft)
+const lightAmbient = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(lightAmbient);
+const lightDir = new THREE.DirectionalLight(0xfffaed, 0.6);
+lightDir.position.set(5, 10, 7);
+scene.add(lightDir);
+
+// 3. CRÉATION DU DÉCOR CYLINDRIQUE (Fait défiler votre fond d'écran à l'infini)
+const textureLoader = new THREE.TextureLoader();
+let fondMesh;
+
+textureLoader.load(URL_FOND, function(texture) {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 2);
+    
+    // Un demi-cylindre en arrière-plan pour créer l'effet de relief et de courbure de la montagne
+    const bgGeo = new THREE.CylinderGeometry(12, 12, 40, 24, 1, true, Math.PI, Math.PI);
+    const bgMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+    fondMesh = new THREE.Mesh(bgGeo, bgMat);
+    fondMesh.position.set(0, 0, -6);
+    fondMesh.rotation.y = Math.PI;
+    scene.add(fondMesh);
+});
+
+// 4. CRÉATION DE LA FUSEE MASCOTTE EN VRAIE 3D PLATED
+let rocketGroup = new THREE.Group();
+scene.add(rocketGroup);
+
+textureLoader.load(URL_FUSEE, function(texture) {
+    // On applique votre fusée sur un plan 3D articulé
+    const planeGeo = new THREE.PlaneGeometry(1.2, 2.1);
+    const planeMat = new THREE.MeshLambertMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+    const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+    rocketGroup.add(planeMesh);
+});
+rocketGroup.position.set(0, -2.8, 2);
+
+// Limites latérales de l'écran pour la fusée
+const LIMIT_X = 2.4; 
+let targetX = 0;
+
+// 5. GESTION DES OBSTACLES (Nuages, Météorites 3D et Batteries)
+const geoMeteore = new THREE.DodecahedronGeometry(0.35);
+const matMeteore = new THREE.MeshLambertMaterial({ color: 0x5a5d64, flatShading: true });
+
+const geoBooster = new THREE.CylinderGeometry(0.18, 0.18, 0.5, 8);
+const matBooster = new THREE.MeshPhongMaterial({ color: 0x4ade80, emissive: 0x16a34a, flatShading: true });
+
+// Nuages cubiques Minecraft de secours
+function creerNuage3D() {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, flatShading: true });
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 0.6), mat);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.6), mat);
+    b2.position.set(0.3, 0.2, 0);
+    group.add(b1, b2);
+    return group;
+}
+
+function spawnItem() {
+    if (gameOver) return;
+    
+    let type = Math.random() < 0.70 ? "obstacle" : "booster";
+    let mesh;
+    
+    if (type === "obstacle") {
+        mesh = Math.random() < 0.4 ? creerNuage3D() : new THREE.Mesh(geoMeteore, matMeteore);
+    } else {
+        mesh = new THREE.Mesh(geoBooster, matBooster);
+    }
+    
+    mesh.position.set((Math.random() - 0.5) * (LIMIT_X * 2), 5, 2);
+    scene.add(mesh);
+    
+    items.push({ mesh: mesh, type: type, radius: type === "obstacle" ? 0.4 : 0.25 });
+    
+    setTimeout(spawnItem, Math.max(300, 1100 - (gameSpeed * 1000)));
+}
+
+// 6. BOUCLE DE MISE A JOUR ET ANIMATION
+const clock = new THREE.Clock();
+
+function gameLoop() {
+    if (gameOver) return;
+    requestAnimationFrame(gameLoop);
+    
+    const delta = clock.getDelta();
+
+    // Faire défiler le fond Minecraft vers le bas à l'infini
+    if (fondMesh) {
+        fondMesh.material.map.offset.y -= gameSpeed * 0.4 * delta;
+    }
+
+    // Accélération progressive
+    gameSpeed += 0.002 * delta;
+    document.getElementById("speedText").innerText = (gameSpeed * 6.5).toFixed(1) + "x";
+
+    // Déplacement latéral fluide amorti (Physique 3D)
+    rocketGroup.position.x += (targetX - rocketGroup.position.x) * 0.15;
+    rocketGroup.rotation.y = (targetX - rocketGroup.position.x) * 0.2; // Inclinaison stylée de la fusée
+    rocketGroup.rotation.z = -(targetX - rocketGroup.position.x) * 0.1;
+
+    // Gestion du Mode Invincible
+    if (estInvincible) {
+        superJauge -= 15 * delta;
+        if (superJauge <= 0) {
+            superJauge = 0; estInvincible = false;
+            lightDir.color.setHex(0xfffaed);
+        }
+    }
+    document.getElementById("jauge-fill").style.height = superJauge + "%";
+
+    // Gestion des obstacles en mouvement
+    for (let i = items.length - 1; i >= 0; i--) {
+        let item = items[i];
+        item.mesh.position.y -= (gameSpeed * 15) * delta;
+        
+        // Rotations autonomes des objets pour le dynamisme
+        item.mesh.rotation.x += 0.02;
+        item.mesh.rotation.y += 0.01;
+
+        // Détection des collisions 3D (Distance mathématique pure)
+        let dist = rocketGroup.position.distanceTo(item.mesh.position);
+        if (dist < (item.radius + 0.45)) {
+            scene.remove(item.mesh);
+            items.splice(i, 1);
+            
+            if (item.type === "booster") {
+                score += 30;
+                if (!estInvincible) {
+                    superJauge = Math.min(100, superJauge + 20);
+                    if (superJauge >= 100) {
+                        estInvincible = true;
+                        lightDir.color.setHex(0xff00ff); // Changement de lumière en mode Super !
+                    }
+                }
+            } else {
+                if (!estInvincible) {
+                    declencherGameOver();
+                } else {
+                    score += 60; // Bonus destruction
+                }
+            }
+            document.getElementById("scoreText").innerText = score;
+            continue;
+        }
+
+        // Nettoyage des objets sortis de l'écran
+        if (item.mesh.position.y < -5) {
+            scene.remove(item.mesh);
+            items.splice(i, 1);
+            score += 2;
+            document.getElementById("scoreText").innerText = score;
+        }
+    }
+
+    renderer.render(scene, camera);
+}
+
+// 7. EXPÉDITION SCORES & GAME OVER TERMINAL
 prechargerScores();
 spawnItem();
 gameLoop();
 
 function prechargerScores() {
-    fetch(SCRIPT_URL)
-    .then(res => res.json())
-    .then(data => { if(data) topScoresLocaux = data; })
-    .catch(() => {});
+    fetch(SCRIPT_URL).then(res => res.json()).then(data => { if(data) topScoresLocaux = data; }).catch(() => {});
 }
-
-function spawnItem() {
-    if (gameOver) return;
-    let ratioObstacle = 0.65 + (gameSpeed * 0.01);
-    let typeChoisi = (Math.random() < ratioObstacle) ? "obstacle" : "booster";
-    items.push({
-        x: Math.random() * (canvas.width - 50),
-        y: -60,
-        width: 45, height: 45,
-        type: typeChoisi,
-        emoji: typeChoisi === "obstacle" ? "☄️" : "🔋"
-    });
-    setTimeout(spawnItem, Math.max(350, 1300 - (gameSpeed * 50)));
-}
-
-function update() {
-    if (gameOver) return;
-    fondY += gameSpeed * 0.6; if (fondY >= canvas.height) fondY = 0;
-    gameSpeed += 0.002;
-    document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
-    
-    // Déplacement fluide
-    rocket.x += (rocket.targetX - rocket.x) * 0.2;
-
-    if (estInvincible) {
-        superJauge -= 0.4;
-        if (superJauge <= 0) { superJauge = 0; estInvincible = false; canvas.style.filter = "none"; }
-    }
-    document.getElementById("jauge-fill").style.height = superJauge + "%";
-
-    for (let i = items.length - 1; i >= 0; i--) {
-        items[i].y += gameSpeed;
-
-        // Collision box
-        if (rocket.x < items[i].x + items[i].width &&
-            rocket.x + rocket.width > items[i].x &&
-            rocket.y < items[i].y + items[i].height &&
-            rocket.y + rocket.height > items[i].y) {
-            
-            if (items[i].type === "booster") {
-                score += 25;
-                if (!estInvincible) {
-                    superJauge = Math.min(100, superJauge + 20);
-                    if (superJauge >= 100) { estInvincible = true; canvas.style.filter = "saturate(2) contrast(1.2)"; }
-                }
-                items.splice(i, 1);
-            } else {
-                if (!estInvincible) { declencherGameOver(); } 
-                else { score += 50; items.splice(i, 1); }
-            }
-            document.getElementById("scoreText").innerText = score;
-            continue;
-        }
-        if (items[i].y > canvas.height) { items.splice(i, 1); score += 1; document.getElementById("scoreText").innerText = score; }
-    }
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 1. Fond d'écran (Minecraft si chargé, sinon Espace bleu nuit codé)
-    if (fondPret) {
-        ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
-        ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
-    } else {
-        ctx.fillStyle = "#111827"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        for(let i=0; i<20; i++) { ctx.fillRect((i*37)%canvas.width, (i*93+fondY*2)%canvas.height, 2, 2); }
-    }
-
-    // 2. Obstacles☄️ et Piles🔋
-    ctx.font = "36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
-    items.forEach(item => {
-        ctx.fillText(item.emoji, item.x + item.width/2, item.y);
-    });
-
-    // 3. Fusée mascotte (Votre PNG si chargé, sinon émoji de secours)
-    if (fuseePrete) {
-        if(estInvincible) { ctx.shadowBlur = 30; ctx.shadowColor = "#f59e0b"; }
-        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-        ctx.shadowBlur = 0;
-    } else {
-        ctx.font = "55px Arial";
-        ctx.fillText("🚀", rocket.x + rocket.width/2, rocket.y);
-    }
-}
-
-function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
 
 function declencherGameOver() {
     gameOver = true;
     document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
     document.getElementById("game-over-screen").style.display = "flex";
     
-    let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
-    if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
+    let pseudo = prompt("Entrez votre pseudo pour le classement :");
+    if (!pseudo || pseudo.trim() === "") pseudo = "Pilote";
 
     topScoresLocaux.push({ pseudo: pseudo, score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
-    
     afficherLeTableau(pseudo, score);
 
     fetch(SCRIPT_URL, {
@@ -209,40 +259,35 @@ function declencherGameOver() {
         mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pseudo: pseudo, score: score })
-    })
-    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
-    .catch(() => {});
+    });
 }
 
 function afficherLeTableau(monPseudo, monScore) {
     let html = "";
-    if(topScoresLocaux.length === 0) {
-        html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
-    } else {
-        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
-            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
-            html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
-        });
-    }
+    topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
+        let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#fbbf24; font-weight:bold;"' : '';
+        html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+    });
     document.getElementById("leaderboard-content").innerHTML = html;
-}
-
-function recupererScoresSeuls() {
-    fetch(SCRIPT_URL)
-    .then(res => res.json())
-    .then(data => { if(data && data.length > 0) { topScoresLocaux = data; afficherLeTableau("", 0); } })
-    .catch(() => {});
 }
 
 function recommencer() { document.location.reload(); }
 
+// CONTROLES TACTILES ET SOURIS SENSITIFS
 function piloter(clientX) {
-    const rect = canvas.getBoundingClientRect();
-    let echelle = canvas.width / rect.width;
-    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * echelle) - rocket.width / 2));
+    const rect = container.getBoundingClientRect();
+    let ratio = (clientX - rect.left) / rect.width;
+    targetX = (ratio - 0.5) * (LIMIT_X * 2);
 }
 window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
 window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
+
+// Ajustement taille automatique
+window.addEventListener('resize', () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+});
 </script>
 </body>
 </html>
