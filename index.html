@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en Puissance - Le Jeu</title>
+    <title>Montée en Puissance</title>
     <style>
         * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
         body {
@@ -23,16 +23,16 @@
             height: 100vh;
             max-height: 850px;
             box-shadow: 0 0 40px rgba(0,0,0,0.85);
-            background: #111;
+            background: #1e293b;
             overflow: hidden;
         }
         canvas { display: block; width: 100%; height: 100%; }
         
-        /* HUD Style Maquette */
+        /* HUD Maquette */
         #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; z-index: 5; }
         .hud-box { 
             position: absolute; 
-            background: rgba(14, 23, 41, 0.8); 
+            background: rgba(14, 23, 41, 0.85); 
             padding: 10px 14px; 
             border-radius: 6px; 
             border: 2px solid #38bdf8; 
@@ -40,25 +40,23 @@
             font-size: 15px;
             letter-spacing: 0.5px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-            backdrop-filter: blur(4px);
         }
         #score-box { top: 15px; left: 15px; }
         #speed-box { top: 62px; left: 15px; }
         
-        /* Super Jauge latérale droite de la maquette */
+        /* Super Jauge */
         #jauge-container { 
             position: absolute; 
             right: 15px; 
             top: 100px; 
             width: 28px; 
             height: 280px; 
-            background: rgba(14, 23, 41, 0.8); 
+            background: rgba(14, 23, 41, 0.85); 
             border: 2px solid #f59e0b; 
             border-radius: 14px; 
             overflow: hidden; 
             display: flex; 
             flex-direction: column-reverse;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         }
         #jauge-fill { 
             width: 100%; 
@@ -78,11 +76,11 @@
             color: #fbbf24; 
         }
 
-        /* Écran Game Over */
+        /* Game Over */
         #game-over-screen { 
             position: absolute; 
             top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(8, 12, 24, 0.97); 
+            background: rgba(8, 12, 24, 0.98); 
             display: none; 
             flex-direction: column; 
             align-items: center; 
@@ -102,7 +100,6 @@
             border-radius: 6px; 
             cursor: pointer; 
             margin-top: 20px;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
         }
         .leaderboard { width: 100%; max-width: 320px; margin: 20px 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; }
         .leaderboard-row { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 15px; }
@@ -119,7 +116,7 @@
         </div>
 
         <div id="game-over-screen">
-            <h1 style="color: #ef4444; margin-bottom: 5px; font-size: 26px; letter-spacing: 1px;">FIN DE TRANSMISSION</h1>
+            <h1 style="color: #ef4444; margin-bottom: 5px; font-size: 26px;">FIN DE TRANSMISSION</h1>
             <p id="final-score-text" style="font-size: 20px; color: #fbbf24; margin-top: 5px; font-weight: bold;">Votre score : 0</p>
             <h3 style="margin-bottom: 8px;">🏆 TOP 5 DU WEEK-END</h3>
             <div class="leaderboard" id="leaderboard-content">
@@ -137,23 +134,28 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- CHARGEMENT DES IMAGES DE LA MAQUETTE (CDN Sécurisé) ---
-const imgFond = new Image(); imgFond.src = 'fond.jpg';
-const imgFusee = new Image(); imgFusee.src = 'fusee.png';
-const imgMeteore = new Image(); imgMeteore.src = 'https://i.ibb.co/3W4Tz4n/meteore-voxel.png'; // Météorite pixel-art grise
-const imgBatterie = new Image(); imgBatterie.src = 'https://i.ibb.co/yNfRWhq/batterie-voxel.png'; // Batterie lumineuse jaune-orange
-const imgNuage = new Image(); imgNuage.src = 'https://i.ibb.co/YyY2Z1C/nuage-voxel.png'; // Nuage voxel blanc transparent
-
-// Moteur de jeu
-let score = 0; let gameSpeed = 4.5; let gameOver = false; let fondY = 0;
+// Variables de jeu
+let score = 0; let gameSpeed = 4.5; let gameOver = false; let scrollY = 0;
 let superJauge = 0; let estInvincible = false;
-let screenShake = 0; // Effet d'impact dynamique de la maquette
+let screenShake = 0;
 
-// Alignement parfait des proportions de la fusée (Hauteur respectée, non écrasée)
-const rocket = { x: 192, y: 610, width: 66, height: 120, targetX: 192 };
+// Alignement parfait et élancé de la fusée (Hauteur respectée)
+const rocket = { x: 195, y: 600, width: 60, height: 120, targetX: 195 };
 let items = [];
 let particules = [];
-let topScoresLocaux = []; 
+let topScoresLocaux = [];
+
+// Génération procédurale des éléments du décor Minecraft (Arbres, Montagnes, Rivières)
+let blocsDecor = [];
+for (let i = 0; i < 30; i++) {
+    blocsDecor.push({
+        x: Math.floor(Math.random() * 15) * 30,
+        y: Math.random() * canvas.height,
+        w: 30 + Math.random() * 60,
+        h: 40 + Math.random() * 80,
+        couleur: Math.random() < 0.15 ? '#2563eb' : (Math.random() < 0.4 ? '#15803d' : '#16a34a') // Eau, Herbe foncée, Herbe claire
+    });
+}
 
 prechargerScores();
 spawnItem();
@@ -166,75 +168,51 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
     let rand = Math.random();
-    let itemType = "obstacle";
-    
-    if (rand > 0.75) {
-        itemType = "booster";
-    } else if (rand > 0.50) {
-        itemType = "nuage";
-    }
+    let type = rand > 0.7 ? "booster" : (rand > 0.45 ? "nuage" : "obstacle");
+    let size = type === "nuage" ? 90 : 45;
 
-    // Calcul de la zone stricte de jeu pour éviter que les éléments apparaissent en dehors
-    let size = itemType === "nuage" ? 110 : (itemType === "obstacle" ? 55 : 44);
     items.push({
-        x: Math.random() * (canvas.width - size - 20) + 10,
-        y: -120,
+        x: Math.random() * (canvas.width - size - 40) + 20,
+        y: -100,
         width: size,
-        height: itemType === "nuage" ? 55 : (itemType === "obstacle" ? 55 : 48),
-        type: itemType,
-        angle: Math.random() * Math.PI // Rotation initiale pour le réalisme
+        height: type === "nuage" ? 45 : 45,
+        type: type
     });
-    
-    setTimeout(spawnItem, Math.max(300, 1200 - (gameSpeed * 45)));
+    setTimeout(spawnItem, Math.max(320, 1200 - (gameSpeed * 40)));
 }
 
-// Générateur de particules lumineuses (Feu sous la fusée et explosions)
 function ajouterParticule(x, y, couleur, taille, vy) {
-    particules.push({
-        x: x, y: y,
-        vx: (Math.random() - 0.5) * 2,
-        vy: vy,
-        alpha: 1,
-        taille: taille,
-        couleur: couleur
-    });
+    particules.push({ x: x, y: y, vx: (Math.random() - 0.5) * 2, vy: vy, alpha: 1, taille: taille, couleur: couleur });
 }
 
 function update() {
     if (gameOver) return;
 
-    // Défilement fluide de votre arrière-plan d'origine
-    fondY += gameSpeed * 0.55; 
-    if (fondY >= canvas.height) fondY = 0;
-    
-    gameSpeed += 0.0022;
-    document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
-    
-    // --- SÉCURITÉ ANTI-TRICHE : Limites latérales strictes ---
-    // La fusée ne peut JAMAIS sortir des dimensions visibles du cadre du jeu
-    rocket.x += (rocket.targetX - rocket.x) * 0.22;
-    if (rocket.x < 15) rocket.x = 15;
-    if (rocket.x > canvas.width - rocket.width - 15) rocket.x = canvas.width - rocket.width - 15;
-
-    // Diminution de l'effet d'impact
+    // Défilement du décor de blocs
+    scrollY += gameSpeed * 0.5;
     if (screenShake > 0) screenShake -= 0.1;
 
-    // Gestion de la traînée de feu pixel-art sous les tuyères
-    if (Math.random() < 0.6) {
-        ajouterParticule(rocket.x + rocket.width / 2 + (Math.random() * 10 - 5), rocket.y + rocket.height - 10, '#f59e0b', Math.random() * 5 + 3, Math.random() * 3 + 4);
-        if (estInvincible) {
-            ajouterParticule(rocket.x + rocket.width / 2 + (Math.random() * 10 - 5), rocket.y + rocket.height - 10, '#38bdf8', Math.random() * 6 + 4, Math.random() * 3 + 5);
-        }
+    gameSpeed += 0.002;
+    document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
+
+    // --- SÉCURITÉ ANTI-TRICHE STRICTE ---
+    rocket.x += (rocket.targetX - rocket.x) * 0.25;
+    if (rocket.x < 20) rocket.x = 20;
+    if (rocket.x > canvas.width - rocket.width - 20) rocket.x = canvas.width - rocket.width - 20;
+
+    // Flammes de propulsion de la fusée
+    if (Math.random() < 0.7) {
+        ajouterParticule(rocket.x + rocket.width/2, rocket.y + rocket.height, '#f97316', Math.random()*5+3, Math.random()*2+4);
+        if (estInvincible) ajouterParticule(rocket.x + rocket.width/2, rocket.y + rocket.height, '#38bdf8', Math.random()*6+4, Math.random()*2+5);
     }
 
-    // Gestion du Mode Invincible
     if (estInvincible) {
         superJauge -= 0.4;
-        if (superJauge <= 0) { estInvincible = false; }
+        if (superJauge <= 0) estInvincible = false;
     }
     document.getElementById("jauge-fill").style.height = superJauge + "%";
 
-    // Gestion des particules
+    // Particules
     for (let p = particules.length - 1; p >= 0; p--) {
         particules[p].x += particules[p].vx;
         particules[p].y += particules[p].vy;
@@ -242,120 +220,107 @@ function update() {
         if (particules[p].alpha <= 0) particules.splice(p, 1);
     }
 
-    // Gestion des obstacles
+    // Objets
     for (let i = items.length - 1; i >= 0; i--) {
         let it = items[i];
-        it.y += itemSpeedModifier(it.type);
-        it.angle += 0.01; // Fait tourner délicatement les météorites voxel
+        it.y += it.type === "nuage" ? gameSpeed * 0.7 : gameSpeed;
 
-        // Ignorer les collisions avec les simples nuages décoratifs
         if (it.type === "nuage") {
             if (it.y > canvas.height) items.splice(i, 1);
             continue;
         }
 
-        // Zone de collision ajustée (AABB stricte avec marges de sécurité)
-        if (rocket.x + 8 < it.x + it.width &&
-            rocket.x + rocket.width - 8 > it.x &&
-            rocket.y + 10 < it.y + it.height &&
-            rocket.y + rocket.height - 15 > it.y) {
+        // Collision précise
+        if (rocket.x < it.x + it.width && rocket.x + rocket.width > it.x &&
+            rocket.y < it.y + it.height && rocket.y + rocket.height > it.y) {
             
             if (it.type === "booster") {
                 score += 30;
-                // Animation d'étincelles bleues lors de la collecte de batterie
-                for(let k=0; k<12; k++) ajouterParticule(it.x + it.width/2, it.y + it.height/2, '#38bdf8', Math.random()*4+2, (Math.random()-0.5)*6);
-                
+                for(let k=0; k<10; k++) ajouterParticule(it.x + 20, it.y + 20, '#38bdf8', Math.random()*4+2, (Math.random()-0.5)*4);
                 if (!estInvincible) {
                     superJauge = Math.min(100, superJauge + 20);
                     if (superJauge >= 100) { estInvincible = true; screenShake = 3; }
                 }
                 items.splice(i, 1);
             } else {
-                if (!estInvincible) { 
+                if (!estInvincible) {
                     screenShake = 6;
-                    declencherGameOver(); 
-                } else { 
-                    score += 60; // Éclater un débris en mode invincible donne un super bonus !
-                    screenShake = 3;
-                    for(let k=0; k<15; k++) ajouterParticule(it.x + it.width/2, it.y + it.height/2, '#ef4444', Math.random()*5+2, (Math.random()-0.5)*5);
-                    items.splice(i, 1); 
+                    declencherGameOver();
+                } else {
+                    score += 60;
+                    screenShake = 2;
+                    for(let k=0; k<10; k++) ajouterParticule(it.x + 20, it.y + 20, '#ef4444', Math.random()*4+2, (Math.random()-0.5)*4);
+                    items.splice(i, 1);
                 }
             }
             document.getElementById("scoreText").innerText = score;
             continue;
         }
 
-        if (it.y > canvas.height) { 
-            items.splice(i, 1); 
-            score += 2; 
-            document.getElementById("scoreText").innerText = score; 
-        }
+        if (it.y > canvas.height) { items.splice(i, 1); score += 2; document.getElementById("scoreText").innerText = score; }
     }
 }
 
-function itemSpeedModifier(type) {
-    if (type === "nuage") return gameSpeed * 0.75; // Les nuages se déplacent un peu plus lentement pour donner l'effet de hauteur parallaxe
-    return gameSpeed;
-}
-
+// DESSIN DES GRAPHISMES EN PUR CODE (ZÉRO IMAGE MANQUANTE POSSIBLE)
 function draw() {
     ctx.save();
-    
-    // Effet d'impact (Secousse de l'écran)
-    if (screenShake > 0) {
-        let dx = (Math.random() - 0.5) * screenShake * 4;
-        let dy = (Math.random() - 0.5) * screenShake * 4;
-        ctx.translate(dx, dy);
-    }
+    if (screenShake > 0) ctx.translate((Math.random()-0.5)*screenShake*4, (Math.random()-0.5)*screenShake*4);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // 1. Dessin du fond style Minecraft (Plaines, rivières défilantes)
+    ctx.fillStyle = '#4ade80'; ctx.fillRect(0, 0, canvas.width, canvas.height); // Fond herbe verte
     
-    // 1. Rendu IMPECCABLE de votre fond d'écran Minecraft (Zéro écran noir possible)
-    try {
-        ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
-        ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
-    } catch(e) {
-        ctx.fillStyle = "#1b2c18"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    blocsDecor.forEach(b => {
+        let yDefile = (b.y + scrollY) % canvas.height;
+        ctx.fillStyle = b.couleur;
+        ctx.fillRect(b.x, yDefile, b.w, b.h);
+        // Ombres des blocs style voxel
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.fillRect(b.x, yDefile + b.h - 8, b.w, 8);
+    });
 
-    // 2. Rendu des Particules (Feu et Énergie)
+    // 2. Traînées de feu
     particules.forEach(p => {
-        ctx.save();
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.couleur;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.taille, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.couleur;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.taille, 0, Math.PI*2); ctx.fill();
         ctx.restore();
     });
 
-    // 3. Rendu des Obstacles, Nuages et Batteries de la maquette originale
+    // 3. Dessin des obstacles & bonus en Pixel-Art mathématique
     items.forEach(it => {
-        ctx.save();
         if (it.type === "obstacle") {
-            ctx.drawImage(imgMeteore, it.x, it.y, it.width, it.height);
+            // Météorite Voxel Grise
+            ctx.fillStyle = '#64748b'; ctx.fillRect(it.x, it.y, it.width, it.height);
+            ctx.fillStyle = '#475569'; ctx.fillRect(it.x + 5, it.y + 5, it.width - 10, it.height - 10);
+            ctx.fillStyle = '#334155'; ctx.fillRect(it.x + 8, it.y + 20, 10, 10); // Cratère
         } else if (it.type === "booster") {
-            ctx.drawImage(imgBatterie, it.x, it.y, it.width, it.height);
+            // Batterie Lumineuse Orange/Jaune
+            ctx.fillStyle = '#f97316'; ctx.fillRect(it.x, it.y, it.width, it.height);
+            ctx.fillStyle = '#facc15'; ctx.fillRect(it.x + 6, it.y + 4, it.width - 12, it.height - 8);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(it.x + 15, it.y + 12, 12, 18); // Éclair blanc
         } else if (it.type === "nuage") {
-            ctx.globalAlpha = 0.85;
-            ctx.drawImage(imgNuage, it.x, it.y, it.width, it.height);
+            // Nuages Minecraft blancs empilés
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fillRect(it.x, it.y + 10, it.width, 25);
+            ctx.fillRect(it.x + 15, it.y, it.width - 30, 20);
         }
-        ctx.restore();
     });
 
-    // 4. Rendu de votre Fusée Mascotte (Proportions d'origine fixes, non écrasée)
-    try {
-        if (estInvincible) {
-            ctx.save();
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = "#fbbf24";
-        }
-        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-        if (estInvincible) ctx.restore();
-    } catch(e) {
-        ctx.font = "50px Arial"; ctx.fillText("🚀", rocket.x, rocket.y + 40);
-    }
-
+    // 4. DESSIN DE LA FUSÉE ÉLANCÉE EN PIXEL-ART (Parfaitement proportionnée)
+    ctx.save();
+    if (estInvincible) { ctx.shadowBlur = 20; ctx.shadowColor = '#fbbf24'; }
+    
+    // Corps principal blanc élancé
+    ctx.fillStyle = '#f8fafc'; ctx.fillRect(rocket.x + 15, rocket.y + 20, 30, 80);
+    // Nez rouge pointu
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.moveTo(rocket.x + 15, rocket.y + 20); ctx.lineTo(rocket.x + 30, rocket.y); ctx.lineTo(rocket.x + 45, rocket.y + 20); ctx.fill();
+    // Ailerons latéraux rouges
+    ctx.fillRect(rocket.x, rocket.y + 75, 15, 30);
+    ctx.fillRect(rocket.x + 45, rocket.y + 75, 15, 30);
+    // Hublot bleu cyan
+    ctx.fillStyle = '#06b6d4'; ctx.fillRect(rocket.x + 22, rocket.y + 35, 16, 16);
+    
+    ctx.restore();
     ctx.restore();
 }
 
@@ -373,12 +338,7 @@ function declencherGameOver() {
     topScoresLocaux.sort((a, b) => b.score - a.score);
     afficherLeTableau(pseudo, score);
 
-    fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pseudo: pseudo, score: score })
-    });
+    fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pseudo: pseudo, score: score }) });
 }
 
 function afficherLeTableau(monPseudo, monScore) {
@@ -392,19 +352,15 @@ function afficherLeTableau(monPseudo, monScore) {
 
 function recommencer() { document.location.reload(); }
 
-// --- CONTROLES SECURISES ET BLOQUES CONTRE LA TRICHE ---
 function piloter(clientX) {
     const rect = canvas.getBoundingClientRect();
     let echelle = canvas.width / rect.width;
-    // Calcule la cible et la coince obligatoirement à l'intérieur de l'écran visible
     let bruteTarget = ((clientX - rect.left) * echelle) - rocket.width / 2;
-    rocket.targetX = Math.max(10, Math.min(canvas.width - rocket.width - 10, bruteTarget));
+    rocket.targetX = Math.max(15, Math.min(canvas.width - rocket.width - 15, bruteTarget));
 }
 
 window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
-window.addEventListener("touchmove", (e) => { 
-    if(e.touches.length > 0) piloter(e.touches[0].clientX); 
-}, { passive: false });
+window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
 </script>
 </body>
 </html>
