@@ -163,18 +163,25 @@
 </div>
 
 <script>
-const SCRIPT_URL = "[script.google.com](https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec)"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec"; 
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- IMAGES ---
-const imgFond = new Image(); imgFond.src = 'fond.png';
-const imgFusee = new Image(); imgFusee.src = 'fusee.png';
-const imgMeteorite = new Image(); imgMeteorite.src = 'meteorite.png';
-const imgBooster = new Image(); imgBooster.src = 'booster.png';
+// --- CONFIGURATION DES CHEMINS D'IMAGES ---
+// Si vos images sont à la racine de GitHub Pages, laissez ainsi. 
+// Si elles ne s'affichent pas, remplacez par l'URL complète (ex: 'https://votrecompte.github.io/votre-depot/fusee.png')
+const PATH_FOND = 'fond.png';
+const PATH_FUSEE = 'fusee.png';
+const PATH_METEORITE = 'meteorite.png';
+const PATH_BOOSTER = 'booster.png';
+
+const imgFond = new Image(); imgFond.src = PATH_FOND;
+const imgFusee = new Image(); imgFusee.src = PATH_FUSEE;
+const imgMeteorite = new Image(); imgMeteorite.src = PATH_METEORITE;
+const imgBooster = new Image(); imgBooster.src = PATH_BOOSTER;
 
 let fondPret = false;
 let fuseePrete = false;
@@ -182,9 +189,28 @@ let meteoritePrete = false;
 let boosterPret = false;
 
 imgFond.onload = () => { fondPret = true; };
-imgFusee.onload = () => { fuseePrete = true; };
 imgMeteorite.onload = () => { meteoritePrete = true; };
 imgBooster.onload = () => { boosterPret = true; };
+
+// Fusée : taille de base
+const rocketBaseW = 90; 
+
+const rocket = {
+    x: canvas.width / 2 - rocketBaseW / 2,
+    y: canvas.height - 220,
+    width: rocketBaseW,
+    height: rocketBaseW * 1.5, // Valeur temporaire en attendant le chargement
+    targetX: canvas.width / 2 - rocketBaseW / 2
+};
+
+imgFusee.onload = () => { 
+    fuseePrete = true;
+    // CALCUL DYNAMIQUE DU RATIO RÉEL : Plus aucun écrasement artificiel !
+    const realRatio = imgFusee.naturalHeight / imgFusee.naturalWidth;
+    rocket.height = rocket.width * realRatio;
+    // Ajustement de la hauteur de vol pour que la base reste bien placée
+    rocket.y = canvas.height - rocket.height - 40;
+};
 
 // Variables globales de jeu
 let score = 0;
@@ -196,19 +222,6 @@ let fondY = 0;
 let energie = 100;
 const energieMax = 100;
 const drainParSeconde = 6;
-
-// Fusée : proportions plus naturelles
-const rocketBaseW = 90;           // largeur
-const targetRatio = 1.4;          // hauteur ≈ 1.4 * largeur
-const rocketBaseH = rocketBaseW * targetRatio;
-
-const rocket = {
-    x: canvas.width / 2 - rocketBaseW / 2,
-    y: canvas.height - 220,
-    width: rocketBaseW,
-    height: rocketBaseH,
-    targetX: canvas.width / 2 - rocketBaseW / 2
-};
 
 let items = [];
 let topScoresLocaux = [];
@@ -233,17 +246,13 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
-    // plus d'obstacles au début, boosters plus fréquents quand ça va vite
-    // ratioObstacle diminue légèrement avec la vitesse
     let ratioObstacle = 0.8 - Math.min(0.3, (gameSpeed - 4) * 0.03);
     if (ratioObstacle < 0.4) ratioObstacle = 0.4;
 
     let typeChoisi = (Math.random() < ratioObstacle) ? "obstacle" : "booster";
-
     let itemWidth, itemHeight, speedFactor;
 
     if (typeChoisi === "obstacle") {
-        // météorites plus petites
         const possibleScales = [0.10, 0.13, 0.16, 0.19, 0.22];
         const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
 
@@ -255,7 +264,7 @@ function spawnItem() {
         else speedFactor = 1.0;
 
     } else {
-        const scale = 0.24; // booster plus compact
+        const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
         speedFactor = 1.0;
@@ -276,15 +285,13 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // Fond : très léger déplacement (optionnel, presque fixe)
-    fondY += gameSpeed * 0.05;
+    // Déplacement vertical du fond (adapté à la vitesse du jeu)
+    fondY += gameSpeed * 0.4;
     if (fondY >= canvas.height) fondY = 0;
 
-    // Difficulté : la vitesse augmente
     gameSpeed += 0.002;
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
 
-    // Énergie
     energie -= drainParSeconde * (1/60);
     if (energie < 0) energie = 0;
     document.getElementById("jauge-fill").style.height = energie + "%";
@@ -302,7 +309,6 @@ function update() {
         const item = items[i];
         item.y += gameSpeed * (item.speedFactor || 1);
 
-        // Hitbox réduites
         const hitboxScaleRocket = 0.7;
         const hitboxScaleItem = 0.7;
 
@@ -345,9 +351,8 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Fond
+    // Fond d'écran défilant
     if (fondPret) {
-        // léger scroll vertical
         ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
         ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
     } else {
@@ -355,7 +360,7 @@ function draw() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Items
+    // Obstacles et Boosters
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (meteoritePrete) {
@@ -378,7 +383,7 @@ function draw() {
         }
     });
 
-    // Fusée
+    // Fusée mascotte proportionnelle
     if (fuseePrete) {
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
     } else {
@@ -404,7 +409,6 @@ function declencherGameOver() {
     let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
     if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
 
-    // logique d’origine : on garde les scores déjà chargés
     topScoresLocaux.push({ pseudo: pseudo, score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
     
