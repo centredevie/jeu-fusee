@@ -3,29 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en Puissance - Week-end Église</title>
+    <title>Montée en Puissance - Le Jeu</title>
     <style>
-        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        body { background: #0c111c; color: white; font-family: 'Segoe UI', Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-        #game-container { position: relative; width: 100%; max-width: 450px; height: 100vh; max-height: 850px; box-shadow: 0 0 40px rgba(0,0,0,0.85); background: #111; overflow: hidden; }
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        body {
+            margin: 0;
+            background: #0d1117;
+            color: white;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            max-height: 800px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            background: #0b0f19;
+        }
         canvas { display: block; width: 100%; height: 100%; }
         
-        /* HUD Style Maquette */
-        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; z-index: 5; }
-        .hud-box { position: absolute; background: rgba(14, 23, 41, 0.85); padding: 10px 14px; border-radius: 6px; border: 2px solid #38bdf8; font-weight: bold; font-size: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+        /* HUD */
+        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; }
+        .hud-box { position: absolute; background: rgba(16, 24, 48, 0.85); padding: 8px 12px; border-radius: 6px; border: 2px solid #3b82f6; font-weight: bold; font-size: 16px; }
         #score-box { top: 15px; left: 15px; }
-        #speed-box { top: 62px; left: 15px; }
+        #speed-box { top: 55px; left: 15px; }
         
-        /* Super Jauge (Maquette originale) */
-        #jauge-container { position: absolute; right: 15px; top: 100px; width: 28px; height: 280px; background: rgba(14, 23, 41, 0.85); border: 2px solid #f59e0b; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column-reverse; }
-        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #fbbf24, #f97316, #ef4444); transition: height 0.1s linear; }
-        #jauge-label { position: absolute; right: -52px; top: 225px; transform: rotate(-90deg); font-size: 9px; font-weight: bold; letter-spacing: 1.2px; text-transform: uppercase; color: #fbbf24; }
+        #jauge-container { position: absolute; right: 15px; top: 100px; width: 30px; height: 250px; background: rgba(16, 24, 48, 0.85); border: 2px solid #f59e0b; border-radius: 15px; overflow: hidden; display: flex; flex-direction: column-reverse; }
+        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #f59e0b, #ef4444); transition: height 0.2s ease; }
+        #jauge-label { position: absolute; right: -45px; top: 210px; transform: rotate(-90deg); font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #f59e0b; }
 
         /* Écran Game Over */
-        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 24, 0.98); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 25px; z-index: 10; }
-        .btn { background: #2563eb; color: white; border: none; padding: 14px 28px; font-size: 17px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
-        .leaderboard { width: 100%; max-width: 320px; margin: 20px 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; }
-        .leaderboard-row { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 15, 30, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 20px; text-align: center; z-index: 10; }
+        .btn { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
+        .leaderboard { width: 100%; max-width: 300px; margin: 20px 0; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; }
+        .leaderboard-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
@@ -39,10 +56,12 @@
         </div>
 
         <div id="game-over-screen">
-            <h1 style="color: #ef4444;">FIN DE TRANSMISSION</h1>
-            <p id="final-score-text" style="font-size: 20px; color: #fbbf24; font-weight: bold; margin: 10px 0;">Votre score : 0</p>
+            <h1 style="color: #ef4444; margin-bottom: 5px;">FIN DE TRANSMISSION</h1>
+            <p id="final-score-text" style="font-size: 20px; margin-top: 5px;">Votre score : 0</p>
             <h3>🏆 TOP 5 DU WEEK-END</h3>
-            <div class="leaderboard" id="leaderboard-content"></div>
+            <div class="leaderboard" id="leaderboard-content">
+                <div class="leaderboard-row"><span>Chargement du classement...</span></div>
+            </div>
             <button class="btn" onclick="recommencer()">RECOLLER AU DÉCOLLAGE</button>
         </div>
     </div>
@@ -55,195 +74,119 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// === LIENS GLOBAUX SÉCURISÉS SUR VOTRE COMPTE GITHUB ===
-const URL_FOND = "https://centredevie.github.io/jeu-fusee/fond.jpg";
-const URL_FUSEE = "https://centredevie.github.io/jeu-fusee/fusee.png";
-// On n'utilise PLUS d'images pour les items car elles ne chargent pas.
+// --- GESTION DES IMAGES ---
+const imgFond = new Image(); imgFond.src = 'fond.jpg';
+const imgFusee = new Image(); imgFusee.src = 'fusee.png';
 
-let fondCharge = false;
-let fuseeCharge = false;
+let fondPret = false;
+let fuseePrete = false;
 
-const imgFond = new Image(); 
-imgFond.src = URL_FOND;
-imgFond.onload = () => { fondCharge = true; };
+imgFond.onload = () => { fondPret = true; };
+imgFusee.onload = () => { fuseePrete = true; };
 
-const imgFusee = new Image(); 
-imgFusee.src = URL_FUSEE;
-imgFusee.onload = () => { 
-    fuseeCharge = true;
-    // CALCUL DYNAMIQUE DU RATIO ET TAILLE AUGMENTÉE
-    const ratio = imgFusee.naturalHeight / imgFusee.naturalWidth;
-    rocket.width = 110; // Fusée majestueuse, non miniature
-    rocket.height = rocket.width * ratio;
-    // Centre proprement
-    rocket.x = canvas.width/2 - rocket.width/2;
-    rocket.targetX = rocket.x;
-    rocket.y = canvas.height - rocket.height - 80;
-};
+// Variables globales de jeu
+let score = 0; let gameSpeed = 4; let gameOver = false; let fondY = 0;
+let superJauge = 0; let estInvincible = false;
+const rocket = { x: 195, y: 620, width: 65, height: 115, targetX: 195 };
+let items = [];
+let topScoresLocaux = []; 
 
-// Émojis stylés et robustes pour le design de la maquette originale
-const emoMeteore = "☄️";
-const emoBooster = "🔋";
-const emoNuage = "☁️";
-
-let score = 0; let gameSpeed = 4.5; let gameOver = false; let fondY = 0;
-let superJauge = 0; let estInvincible = false; let screenShake = 0;
-
-// Structure de base (la taille sera majestueuse dès le chargement)
-const rocket = { x: 192, y: 610, width: 66, height: 120, targetX: 192 };
-let items = []; let particules = []; let topScoresLocaux = [];
-
+// Lancement immédiat du jeu sans attendre le réseau ou les fichiers
 prechargerScores();
 spawnItem();
 gameLoop();
 
 function prechargerScores() {
-    fetch(SCRIPT_URL).then(res => res.json()).then(data => { if(data) topScoresLocaux = data; }).catch(() => {});
+    fetch(SCRIPT_URL)
+    .then(res => res.json())
+    .then(data => { if(data) topScoresLocaux = data; })
+    .catch(() => {});
 }
 
 function spawnItem() {
     if (gameOver) return;
-    let rand = Math.random();
-    let type = rand > 0.75 ? "booster" : (rand > 0.45 ? "nuage" : "obstacle");
-    let size = type === "nuage" ? 100 : (type === "obstacle" ? 55 : 45);
-
+    let ratioObstacle = 0.65 + (gameSpeed * 0.01);
+    let typeChoisi = (Math.random() < ratioObstacle) ? "obstacle" : "booster";
     items.push({
-        x: Math.random() * (canvas.width - size - 20) + 10,
-        y: -120,
-        width: size,
-        height: type === "nuage" ? 50 : 50,
-        type: type,
-        angle: Math.random() * Math.PI // Pour une rotation légère
+        x: Math.random() * (canvas.width - 50),
+        y: -60,
+        width: 45, height: 45,
+        type: typeChoisi,
+        emoji: typeChoisi === "obstacle" ? "☄️" : "🔋"
     });
-    setTimeout(spawnItem, Math.max(300, 1200 - (gameSpeed * 45)));
-}
-
-function ajouterParticule(x, y, couleur, taille, vy) {
-    particules.push({ x: x, y: y, vx: (Math.random() - 0.5) * 2, vy: vy, alpha: 1, taille: taille, couleur: couleur });
+    setTimeout(spawnItem, Math.max(350, 1300 - (gameSpeed * 50)));
 }
 
 function update() {
     if (gameOver) return;
-
-    fondY += gameSpeed * 0.55; 
-    if (fondY >= canvas.height) fondY = 0;
-    
-    gameSpeed += 0.0022;
+    fondY += gameSpeed * 0.6; if (fondY >= canvas.height) fondY = 0;
+    gameSpeed += 0.002;
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
     
-    // ANTI-TRICHE STRICT : Bloqué dans l'écran de jeu
-    rocket.x += (rocket.targetX - rocket.x) * 0.22;
-    if (rocket.x < 15) rocket.x = 15;
-    if (rocket.x > canvas.width - rocket.width - 15) rocket.x = canvas.width - rocket.width - 15;
-
-    if (screenShake > 0) screenShake -= 0.1;
-
-    // Flammes rétro-propulsées pixel-art
-    if (Math.random() < 0.6) {
-        ajouterParticule(rocket.x + rocket.width / 2, rocket.y + rocket.height - 10, '#f59e0b', Math.random() * 5 + 3, Math.random() * 3 + 4);
-    }
+    // Déplacement fluide
+    rocket.x += (rocket.targetX - rocket.x) * 0.2;
 
     if (estInvincible) {
         superJauge -= 0.4;
-        if (superJauge <= 0) estInvincible = false;
+        if (superJauge <= 0) { superJauge = 0; estInvincible = false; canvas.style.filter = "none"; }
     }
     document.getElementById("jauge-fill").style.height = superJauge + "%";
 
-    for (let p = particules.length - 1; p >= 0; p--) {
-        particules[p].x += particules[p].vx; particules[p].y += particules[p].vy; particules[p].alpha -= 0.02;
-        if (particules[p].alpha <= 0) particules.splice(p, 1);
-    }
-
     for (let i = items.length - 1; i >= 0; i--) {
-        let it = items[i];
-        it.y += it.type === "nuage" ? gameSpeed * 0.75 : gameSpeed;
-        it.angle += 0.01;
+        items[i].y += gameSpeed;
 
-        if (it.type === "nuage") {
-            if (it.y > canvas.height) items.splice(i, 1);
-            continue;
-        }
-
-        // Zone de collision solide
-        if (rocket.x + 8 < it.x + it.width && rocket.x + rocket.width - 8 > it.x &&
-            rocket.y + 10 < it.y + it.height && rocket.y + rocket.height - 15 > it.y) {
+        // Collision box
+        if (rocket.x < items[i].x + items[i].width &&
+            rocket.x + rocket.width > items[i].x &&
+            rocket.y < items[i].y + items[i].height &&
+            rocket.y + rocket.height > items[i].y) {
             
-            if (it.type === "booster") {
-                score += 30;
-                for(let k=0; k<10; k++) ajouterParticule(it.x + it.width/2, it.y + it.height/2, '#38bdf8', Math.random()*5+2, (Math.random()-0.5)*5);
+            if (items[i].type === "booster") {
+                score += 25;
                 if (!estInvincible) {
                     superJauge = Math.min(100, superJauge + 20);
-                    if (superJauge >= 100) { estInvincible = true; screenShake = 3; }
+                    if (superJauge >= 100) { estInvincible = true; canvas.style.filter = "saturate(2) contrast(1.2)"; }
                 }
                 items.splice(i, 1);
             } else {
-                if (!estInvincible) {
-                    screenShake = 6;
-                    declencherGameOver(); 
-                } else { 
-                    score += 60; 
-                    screenShake = 3;
-                    for(let k=0; k<10; k++) ajouterParticule(it.x + it.width/2, it.y + it.height/2, '#ef4444', Math.random()*5+2, (Math.random()-0.5)*5);
-                    items.splice(i, 1); 
-                }
+                if (!estInvincible) { declencherGameOver(); } 
+                else { score += 50; items.splice(i, 1); }
             }
             document.getElementById("scoreText").innerText = score;
             continue;
         }
-
-        if (it.y > canvas.height) { items.splice(i, 1); score += 2; document.getElementById("scoreText").innerText = score; }
+        if (items[i].y > canvas.height) { items.splice(i, 1); score += 1; document.getElementById("scoreText").innerText = score; }
     }
 }
 
 function draw() {
-    ctx.save();
-    if (screenShake > 0) ctx.translate((Math.random() - 0.5) * screenShake * 4, (Math.random() - 0.5) * screenShake * 4);
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Rendu IMPECCABLE de votre fond d'écran (Zéro écran vert uni)
-    if (fondCharge) {
+    // 1. Fond d'écran (Minecraft si chargé, sinon Espace bleu nuit codé)
+    if (fondPret) {
         ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
         ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
     } else {
-        // Fond de secours Minecraft si ça charge trop lentement
-        ctx.fillStyle = "#3b8216"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#111827"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        for(let i=0; i<20; i++) { ctx.fillRect((i*37)%canvas.width, (i*93+fondY*2)%canvas.height, 2, 2); }
     }
 
-    particules.forEach(p => {
-        ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.couleur;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.taille, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    // 2. Obstacles☄️ et Piles🔋
+    ctx.font = "36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    items.forEach(item => {
+        ctx.fillText(item.emoji, item.x + item.width/2, item.y);
     });
 
-    // Rendu des Obstacles, Nuages et Boosters via Émojis stylés et robustes
-    ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    items.forEach(it => {
-        ctx.save();
-        if (it.type === "obstacle") {
-            ctx.translate(it.x + it.width/2, it.y + it.height/2);
-            ctx.rotate(it.angle);
-            ctx.fillText(emoMeteore, 0, 0);
-        } else if (it.type === "booster") {
-            ctx.fillText(emoBooster, it.x + it.width/2, it.y + it.height/2);
-        } else if (it.type === "nuage") {
-            ctx.font = "70px Arial";
-            ctx.globalAlpha = 0.85;
-            ctx.fillText(emoNuage, it.x + it.width/2, it.y + it.height/2);
-        }
-        ctx.restore();
-    });
-
-    // DESSIN DE LA VRAIE FUSÉE MASCOTTE (Majestueuse, non miniature)
-    if (fuseeCharge) {
-        if (estInvincible) { ctx.save(); ctx.shadowBlur = 25; ctx.shadowColor = "#fbbf24"; }
+    // 3. Fusée mascotte (Votre PNG si chargé, sinon émoji de secours)
+    if (fuseePrete) {
+        if(estInvincible) { ctx.shadowBlur = 30; ctx.shadowColor = "#f59e0b"; }
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-        if (estInvincible) ctx.restore();
+        ctx.shadowBlur = 0;
     } else {
-        ctx.font = "60px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("🚀", rocket.x + 33, rocket.y + 60);
+        ctx.font = "55px Arial";
+        ctx.fillText("🚀", rocket.x + rocket.width/2, rocket.y);
     }
-
-    ctx.restore();
 }
 
 function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
@@ -254,15 +197,41 @@ function declencherGameOver() {
     document.getElementById("game-over-screen").style.display = "flex";
     
     let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
-    if (!pseudo || pseudo.trim() === "") pseudo = "Pilote";
+    if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
 
     topScoresLocaux.push({ pseudo: pseudo, score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
-    let html = "";
-    topScoresLocaux.slice(0, 5).forEach((j, index) => { html += `<div class="leaderboard-row"><span>${index+1}. ${j.pseudo}</span><span>${j.score} ⚡</span></div>`; });
-    document.getElementById("leaderboard-content").innerHTML = html;
+    
+    afficherLeTableau(pseudo, score);
 
-    fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pseudo: pseudo, score: score }) });
+    fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pseudo: pseudo, score: score })
+    })
+    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
+    .catch(() => {});
+}
+
+function afficherLeTableau(monPseudo, monScore) {
+    let html = "";
+    if(topScoresLocaux.length === 0) {
+        html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
+    } else {
+        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
+            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
+            html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+        });
+    }
+    document.getElementById("leaderboard-content").innerHTML = html;
+}
+
+function recupererScoresSeuls() {
+    fetch(SCRIPT_URL)
+    .then(res => res.json())
+    .then(data => { if(data && data.length > 0) { topScoresLocaux = data; afficherLeTableau("", 0); } })
+    .catch(() => {});
 }
 
 function recommencer() { document.location.reload(); }
@@ -270,8 +239,7 @@ function recommencer() { document.location.reload(); }
 function piloter(clientX) {
     const rect = canvas.getBoundingClientRect();
     let echelle = canvas.width / rect.width;
-    let bruteTarget = ((clientX - rect.left) * echelle) - rocket.width / 2;
-    rocket.targetX = Math.max(10, Math.min(canvas.width - rocket.width - 10, bruteTarget));
+    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * echelle) - rocket.width / 2));
 }
 window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
 window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
