@@ -190,7 +190,7 @@ imgFond.onload = () => { fondPret = true; };
 imgMeteorite.onload = () => { meteoritePrete = true; };
 imgBooster.onload = () => { boosterPret = true; };
 
-// --- CORRECTION FORMAT FUSÉE (Fine et élancée) ---
+// --- CONFIGURATION FORMAT FUSÉE (Élancée & Proportionnelle) ---
 const rocketBaseW = 60; 
 
 const rocket = {
@@ -209,17 +209,17 @@ imgFusee.onload = () => {
     rocket.y = canvas.height - rocket.height - 40;
 };
 
-// Variables globales
+// Variables globales de jeu
 let score = 0;
 let gameSpeed = 4;
 let gameOver = false;
 
-// --- CORRECTION VARIABLES DE DEFILEMENT ---
+// Variables pour le défilement asynchrone du décor
 let defilementInitial = 0; 
 let boucleCielY = 0;
 let phaseBoucleCiel = false;
 
-// Énergie
+// Énergie et mécanique de survie
 let energie = 100;
 const energieMax = 100;
 const drainParSeconde = 6;
@@ -285,18 +285,20 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- LOGIQUE DE DÉFILEMENT SÉCURISÉE ---
+    // --- MISE À JOUR CALCUL DÉFILEMENT FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
         let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
         let limiteTransition = hauteurTotaleAffichee - canvas.height;
 
         if (!phaseBoucleCiel) {
+            // Phase Décollage : l'image descend pour simuler la montée
             defilementInitial += gameSpeed * 0.4;
             if (defilementInitial >= limiteTransition) {
                 phaseBoucleCiel = true;
             }
         } else {
+            // Phase Espace Infini : boucle indépendante sur la zone du ciel
             boucleCielY += gameSpeed * 0.4;
             if (boucleCielY >= canvas.height) {
                 boucleCielY = 0;
@@ -357,36 +359,29 @@ function update() {
     }
 }
 
-
-
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // --- RENDU LOGIQUE DES DEUX PHASES DE FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
 
         if (!phaseBoucleCiel) {
-            // Phase Décollage : Glisse normale du bas vers le haut
+            // Rendu Décollage : Défilement linéaire du bas vers le haut
             let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (defilementInitial / echelleFond);
             ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
         } else {
-            // --- ASTUCE POUR UNE JOLIE BOUCLE NETTE ---
-            // Au lieu de prendre le pixel 0 (trop foncé), on prend une portion de ciel intermédiaire
-            // On calcule un décalage (ex: 20% du haut de l'image) pour éviter la zone trop sombre
-            let zoneCielStableY = (imgFond.naturalHeight * 0.22); 
-            
-            let yRelatif = boucleCielY % canvas.height;
-            
-            // On dessine le ciel en boucle sur cette zone de couleur constante
-            ctx.drawImage(imgFond, 0, zoneCielStableY, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
-            ctx.drawImage(imgFond, 0, zoneCielStableY, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
+            // Rendu Ciel Infini : Reproductibilité fluide en boucle infinie (Ciel stable)
+            let yRelatif = boucleCielY;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
         }
     } else {
         ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Items (Obstacles et Boosters)
+    // Rendu des Éléments (Obstacles / Boosters)
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (meteoritePrete) {
@@ -405,7 +400,7 @@ function draw() {
         }
     });
 
-    // Fusée
+    // Rendu de la Fusée calibrée
     if (fuseePrete) {
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
     } else {
