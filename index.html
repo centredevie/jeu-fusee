@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Montée en Puissance - Le Jeu</title>
     <style>
-        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
         body {
             margin: 0;
             background: #0d1117;
@@ -26,202 +30,403 @@
             box-shadow: 0 0 30px rgba(0,0,0,0.8);
             background: #0b0f19;
         }
-        canvas { display: block; width: 100%; height: 100%; }
-        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
         /* HUD */
-        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; }
-        .hud-box { position: absolute; background: rgba(16, 24, 48, 0.85); padding: 8px 12px; border-radius: 6px; border: 2px solid #3b82f6; font-weight: bold; font-size: 16px; }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            padding: 15px;
+        }
+        .hud-box {
+            position: absolute;
+            background: rgba(16, 24, 48, 0.85);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 2px solid #3b82f6;
+            font-weight: bold;
+            font-size: 16px;
+        }
         #score-box { top: 15px; left: 15px; }
         #speed-box { top: 55px; left: 15px; }
-        
-        #jauge-container { position: absolute; right: 15px; top: 100px; width: 30px; height: 250px; background: rgba(16, 24, 48, 0.85); border: 2px solid #f59e0b; border-radius: 15px; overflow: hidden; display: flex; flex-direction: column-reverse; }
-        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #f59e0b, #ef4444); transition: height 0.2s ease; }
-        #jauge-label { position: absolute; right: -45px; top: 210px; transform: rotate(-90deg); font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: #f59e0b; }
+
+        #jauge-container {
+            position: absolute;
+            right: 15px;
+            top: 100px;
+            width: 30px;
+            height: 250px;
+            background: rgba(16, 24, 48, 0.85);
+            border: 2px solid #f59e0b;
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+        #jauge-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, #f59e0b, #ef4444);
+            transition: height 0.2s ease;
+        }
+        #jauge-label {
+            position: absolute;
+            right: -45px;
+            top: 210px;
+            transform: rotate(-90deg);
+            font-size: 11px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #f59e0b;
+        }
 
         /* Écran Game Over */
-        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 15, 30, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 20px; text-align: center; z-index: 10; }
-        .btn { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
-        .leaderboard { width: 100%; max-width: 300px; margin: 20px 0; background: rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; }
-        .leaderboard-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 15, 30, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            padding: 20px;
+            text-align: center;
+            z-index: 10;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .leaderboard {
+            width: 100%;
+            max-width: 300px;
+            margin: 20px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        <div id="ui-layer">
-            <div id="score-box" class="hud-box">PUISSANCE: <span id="scoreText">0</span> ⚡</div>
-            <div id="speed-box" class="hud-box">VITESSE: <span id="speedText">1.0x</span></div>
-            <div id="jauge-container"><div id="jauge-fill"></div><div id="jauge-label">Montée en puissance</div></div>
-        </div>
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
 
-        <div id="game-over-screen">
-            <h1 style="color: #ef4444; margin-bottom: 5px;">FIN DE TRANSMISSION</h1>
-            <p id="final-score-text" style="font-size: 20px; margin-top: 5px;">Votre score : 0</p>
-            <h3>🏆 TOP 5 DU WEEK-END</h3>
-            <div class="leaderboard" id="leaderboard-content">
-                <div class="leaderboard-row"><span>Chargement du classement...</span></div>
-            </div>
-            <button class="btn" onclick="recommencer()">RECOLLER AU DÉCOLLAGE</button>
+    <div id="ui-layer">
+        <div id="score-box" class="hud-box">
+            PUISSANCE: <span id="scoreText">0</span> ⚡
+        </div>
+        <div id="speed-box" class="hud-box">
+            VITESSE: <span id="speedText">1.0x</span>
+        </div>
+        <div id="jauge-container">
+            <div id="jauge-fill"></div>
+            <div id="jauge-label">Montée en puissance</div>
         </div>
     </div>
 
+    <div id="game-over-screen">
+        <h1 style="color: #ef4444; margin-bottom: 5px;">FIN DE TRANSMISSION</h1>
+        <p id="final-score-text" style="font-size: 20px; margin-top: 5px;">Votre score : 0</p>
+        <h3>🏆 TOP 5 DU WEEK-END</h3>
+        <div class="leaderboard" id="leaderboard-content">
+            <div class="leaderboard-row">
+                <span>Chargement du classement...</span>
+            </div>
+        </div>
+        <button class="btn" onclick="recommencer()">RECOLLER AU DÉCOLLAGE</button>
+    </div>
+</div>
+
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec"; 
+// URL du script Apps Script (classement)
+const SCRIPT_URL = "[script.google.com](https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec)";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- GESTION DES IMAGES ---
-const imgFond = new Image(); imgFond.src = 'fond.jpg';
-const imgFusee = new Image(); imgFusee.src = 'fusee.png';
-
+// --- IMAGES ---
+// Fond principal style Minecraft
+const imgFond = new Image();
+imgFond.src = "fond.png";        // assure-toi que le fichier s'appelle bien fond.png
 let fondPret = false;
-let fuseePrete = false;
-
 imgFond.onload = () => { fondPret = true; };
+
+// Fusée mascotte
+const imgFusee = new Image();
+imgFusee.src = "fusee.png";     // recadrée, fond transparent
+let fuseePrete = false;
 imgFusee.onload = () => { fuseePrete = true; };
 
-// Variables globales de jeu
-let score = 0; let gameSpeed = 4; let gameOver = false; let fondY = 0;
-let superJauge = 0; let estInvincible = false;
-const rocket = { x: 195, y: 620, width: 65, height: 115, targetX: 195 };
-let items = [];
-let topScoresLocaux = []; 
+// Atlas (météorites, batteries, etc.)
+const imgAtlas = new Image();
+imgAtlas.src = "atlas.png";
+let atlasPret = false;
+imgAtlas.onload = () => { atlasPret = true; };
 
-// Lancement immédiat du jeu sans attendre le réseau ou les fichiers
+// Définition simplifiée des sprites dans l'atlas
+// (coordonnées à ajuster selon ton vrai atlas)
+const sprites = {
+    meteorite1: { x: 512, y: 0,   w: 96, h: 96 },
+    meteorite2: { x: 512, y: 96,  w: 96, h: 96 },
+    batterie:   { x: 512, y: 256, w: 64, h: 96 }
+};
+
+// --- VARIABLES DE JEU ---
+let score = 0;
+let gameSpeed = 4;          // vitesse de défilement de base
+let gameOver = false;
+let fondY = 0;
+
+// ÉNERGIE (remplace l'ancienne "superJauge")
+let energie = 100;
+const energieMax = 100;
+const drainParSeconde = 6;  // à ajuster pour le rythme
+
+// Fusée : plus fine / plus haute
+const rocket = {
+    x: canvas.width / 2 - 32,
+    y: canvas.height - 180,
+    width: 64,
+    height: 128,
+    targetX: canvas.width / 2 - 32
+};
+
+let items = [];             // obstacles + batteries
+let topScoresLocaux = [];
+
+// Lancement immédiat
 prechargerScores();
 spawnItem();
 gameLoop();
 
+// --- SCORES ---
 function prechargerScores() {
     fetch(SCRIPT_URL)
-    .then(res => res.json())
-    .then(data => { if(data) topScoresLocaux = data; })
-    .catch(() => {});
+        .then(res => res.json())
+        .then(data => { if (data) topScoresLocaux = data; })
+        .catch(() => {});
 }
 
+// --- SPAWN DES OBJETS ---
 function spawnItem() {
     if (gameOver) return;
+
     let ratioObstacle = 0.65 + (gameSpeed * 0.01);
     let typeChoisi = (Math.random() < ratioObstacle) ? "obstacle" : "booster";
+
+    // choix du sprite pour l'atlas
+    let spriteKey;
+    if (typeChoisi === "obstacle") {
+        spriteKey = (Math.random() < 0.5) ? "meteorite1" : "meteorite2";
+    } else {
+        spriteKey = "batterie";
+    }
+
     items.push({
-        x: Math.random() * (canvas.width - 50),
-        y: -60,
-        width: 45, height: 45,
+        x: Math.random() * (canvas.width - 60),
+        y: -70,
+        width: 60,
+        height: 60,
         type: typeChoisi,
-        emoji: typeChoisi === "obstacle" ? "☄️" : "🔋"
+        spriteKey: spriteKey
     });
-    setTimeout(spawnItem, Math.max(350, 1300 - (gameSpeed * 50)));
+
+    // fréquence d'apparition
+    const delai = Math.max(350, 1300 - (gameSpeed * 50));
+    setTimeout(spawnItem, delai);
 }
 
+// --- UPDATE ---
 function update() {
     if (gameOver) return;
-    fondY += gameSpeed * 0.6; if (fondY >= canvas.height) fondY = 0;
+
+    // Scroll du fond
+    fondY += gameSpeed * 0.6;
+    if (fondY >= canvas.height) fondY = 0;
+
+    // Augmentation progressive de la vitesse
     gameSpeed += 0.002;
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
-    
-    // Déplacement fluide
+
+    // Énergie : baisse constante
+    energie -= drainParSeconde * (1 / 60);   // approx 60 FPS
+    if (energie < 0) energie = 0;
+    document.getElementById("jauge-fill").style.height = energie + "%";
+
+    // Si plus d'énergie -> game over (panne)
+    if (energie === 0) {
+        declencherGameOver();
+        return;
+    }
+
+    // Déplacement fluide de la fusée vers sa targetX
     rocket.x += (rocket.targetX - rocket.x) * 0.2;
 
-    if (estInvincible) {
-        superJauge -= 0.4;
-        if (superJauge <= 0) { superJauge = 0; estInvincible = false; canvas.style.filter = "none"; }
-    }
-    document.getElementById("jauge-fill").style.height = superJauge + "%";
-
+    // Mise à jour des items
     for (let i = items.length - 1; i >= 0; i--) {
-        items[i].y += gameSpeed;
+        const item = items[i];
+        item.y += gameSpeed;
 
-        // Collision box
-        if (rocket.x < items[i].x + items[i].width &&
-            rocket.x + rocket.width > items[i].x &&
-            rocket.y < items[i].y + items[i].height &&
-            rocket.y + rocket.height > items[i].y) {
-            
-            if (items[i].type === "booster") {
+        // Collision AABB
+        if (rocket.x < item.x + item.width &&
+            rocket.x + rocket.width > item.x &&
+            rocket.y < item.y + item.height &&
+            rocket.y + rocket.height > item.y) {
+
+            if (item.type === "booster") {
+                // Batterie : augmente énergie
                 score += 25;
-                if (!estInvincible) {
-                    superJauge = Math.min(100, superJauge + 20);
-                    if (superJauge >= 100) { estInvincible = true; canvas.style.filter = "saturate(2) contrast(1.2)"; }
-                }
-                items.splice(i, 1);
+                energie = Math.min(energieMax, energie + 25);
             } else {
-                if (!estInvincible) { declencherGameOver(); } 
-                else { score += 50; items.splice(i, 1); }
+                // Météorite : crash direct
+                declencherGameOver();
+                return;
             }
+
+            items.splice(i, 1);
             document.getElementById("scoreText").innerText = score;
             continue;
         }
-        if (items[i].y > canvas.height) { items.splice(i, 1); score += 1; document.getElementById("scoreText").innerText = score; }
+
+        // Sortie de l'écran par le bas
+        if (item.y > canvas.height) {
+            items.splice(i, 1);
+            // petit bonus de survie
+            score += 1;
+            document.getElementById("scoreText").innerText = score;
+        }
     }
 }
 
+// --- DRAW ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 1. Fond d'écran (Minecraft si chargé, sinon Espace bleu nuit codé)
+
+    // 1. Fond
     if (fondPret) {
         ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
         ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
     } else {
-        ctx.fillStyle = "#111827"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // fond de secours
+        ctx.fillStyle = "#111827";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "rgba(255,255,255,0.3)";
-        for(let i=0; i<20; i++) { ctx.fillRect((i*37)%canvas.width, (i*93+fondY*2)%canvas.height, 2, 2); }
+        for (let i = 0; i < 20; i++) {
+            ctx.fillRect((i * 37) % canvas.width, (i * 93 + fondY * 2) % canvas.height, 2, 2);
+        }
     }
 
-    // 2. Obstacles☄️ et Piles🔋
-    ctx.font = "36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
-    items.forEach(item => {
-        ctx.fillText(item.emoji, item.x + item.width/2, item.y);
-    });
+    // 2. Items (météorites + batteries)
+    if (atlasPret) {
+        items.forEach(item => {
+            const s = sprites[item.spriteKey];
+            if (!s) return;
+            ctx.drawImage(
+                imgAtlas,
+                s.x, s.y, s.w, s.h,
+                item.x, item.y, item.width, item.height
+            );
+        });
+    } else {
+        // fallback en émojis le temps que l'atlas charge
+        ctx.font = "36px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        items.forEach(item => {
+            const emoji = item.type === "obstacle" ? "☄️" : "🔋";
+            ctx.fillText(emoji, item.x + item.width / 2, item.y);
+        });
+    }
 
-    // 3. Fusée mascotte (Votre PNG si chargé, sinon émoji de secours)
+    // 3. Fusée
     if (fuseePrete) {
-        if(estInvincible) { ctx.shadowBlur = 30; ctx.shadowColor = "#f59e0b"; }
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-        ctx.shadowBlur = 0;
     } else {
         ctx.font = "55px Arial";
-        ctx.fillText("🚀", rocket.x + rocket.width/2, rocket.y);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText("🚀", rocket.x + rocket.width / 2, rocket.y);
     }
 }
 
-function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
+// --- BOUCLE PRINCIPALE ---
+function gameLoop() {
+    update();
+    draw();
+    if (!gameOver) requestAnimationFrame(gameLoop);
+}
 
+// --- GAME OVER / SCORES ---
 function declencherGameOver() {
+    if (gameOver) return;
     gameOver = true;
-    document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
+
+    document.getElementById("final-score-text").innerText =
+        "Votre puissance finale : " + score + " ⚡";
     document.getElementById("game-over-screen").style.display = "flex";
-    
+
     let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
     if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
 
     topScoresLocaux.push({ pseudo: pseudo, score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
-    
+
     afficherLeTableau(pseudo, score);
 
+    // Envoi au script (mode no-cors)
     fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pseudo: pseudo, score: score })
     })
-    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
+    .then(() => {
+        setTimeout(recupererScoresSeuls, 1000);
+    })
     .catch(() => {});
 }
 
 function afficherLeTableau(monPseudo, monScore) {
     let html = "";
-    if(topScoresLocaux.length === 0) {
+    if (topScoresLocaux.length === 0) {
         html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
     } else {
         topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
-            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
-            html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+            const estMoi = (joueur.pseudo === monPseudo && joueur.score === monScore);
+            const style = estMoi ? 'style="color:#f59e0b; font-weight:bold;"' : "";
+            html += `<div class="leaderboard-row" ${style}>
+                        <span>${index + 1}. ${joueur.pseudo}</span>
+                        <span>${joueur.score} ⚡</span>
+                     </div>`;
         });
     }
     document.getElementById("leaderboard-content").innerHTML = html;
@@ -229,20 +434,41 @@ function afficherLeTableau(monPseudo, monScore) {
 
 function recupererScoresSeuls() {
     fetch(SCRIPT_URL)
-    .then(res => res.json())
-    .then(data => { if(data && data.length > 0) { topScoresLocaux = data; afficherLeTableau("", 0); } })
-    .catch(() => {});
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                topScoresLocaux = data;
+                afficherLeTableau("", 0);
+            }
+        })
+        .catch(() => {});
 }
 
-function recommencer() { document.location.reload(); }
+function recommencer() {
+    document.location.reload();
+}
 
+// --- CONTROLES (souris + tactile) ---
 function piloter(clientX) {
     const rect = canvas.getBoundingClientRect();
-    let echelle = canvas.width / rect.width;
-    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * echelle) - rocket.width / 2));
+    const echelle = canvas.width / rect.width;
+    rocket.targetX = Math.max(
+        0,
+        Math.min(
+            canvas.width - rocket.width,
+            (clientX - rect.left) * echelle - rocket.width / 2
+        )
+    );
 }
-window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
-window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
+
+window.addEventListener("mousemove", (e) => {
+    piloter(e.clientX);
+});
+
+window.addEventListener("touchmove", (e) => {
+    if (e.touches.length > 0) piloter(e.touches[0].clientX);
+}, { passive: false });
+
 </script>
 </body>
 </html>
