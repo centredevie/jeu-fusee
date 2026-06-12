@@ -357,29 +357,36 @@ function update() {
     }
 }
 
+
+
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- RENDU LOGIQUE ET SECURISE ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
 
         if (!phaseBoucleCiel) {
-            // Phase Décollage : On glisse du bas de l'image vers le haut
+            // Phase Décollage : Glisse normale du bas vers le haut
             let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (defilementInitial / echelleFond);
             ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
         } else {
-            // Phase Ciel Infini : On boucle uniquement sur le très haut de l'image (le ciel bleu infini)
-            let yRelatif = boucleCielY;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
+            // --- ASTUCE POUR UNE JOLIE BOUCLE NETTE ---
+            // Au lieu de prendre le pixel 0 (trop foncé), on prend une portion de ciel intermédiaire
+            // On calcule un décalage (ex: 20% du haut de l'image) pour éviter la zone trop sombre
+            let zoneCielStableY = (imgFond.naturalHeight * 0.22); 
+            
+            let yRelatif = boucleCielY % canvas.height;
+            
+            // On dessine le ciel en boucle sur cette zone de couleur constante
+            ctx.drawImage(imgFond, 0, zoneCielStableY, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
+            ctx.drawImage(imgFond, 0, zoneCielStableY, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
         }
     } else {
         ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Items
+    // Items (Obstacles et Boosters)
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (meteoritePrete) {
@@ -398,7 +405,7 @@ function draw() {
         }
     });
 
-    // Fusée Mascotte (calibrée fine)
+    // Fusée
     if (fuseePrete) {
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
     } else {
