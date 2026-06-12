@@ -190,8 +190,8 @@ imgFond.onload = () => { fondPret = true; };
 imgMeteorite.onload = () => { meteoritePrete = true; };
 imgBooster.onload = () => { boosterPret = true; };
 
-// --- CORRECTION TAILLE FUSÉE ---
-// On réduit la largeur de base (ex: 60px) pour que la fusée de 234x646 px soit fine et élancée à l'écran
+// --- CORRECTION FORMAT FUSÉE ---
+// On réduit la largeur de base à 60 pixels pour que le ratio élancé (234x646) la rende fine et élégante
 const rocketBaseW = 60; 
 
 const rocket = {
@@ -204,18 +204,17 @@ const rocket = {
 
 imgFusee.onload = () => { 
     fuseePrete = true;
-    const realRatio = imgFusee.naturalHeight / imgFusee.naturalWidth; // Vaut 646 / 234 ≈ 2.76
+    const realRatio = imgFusee.naturalHeight / imgFusee.naturalWidth;
     rocket.width = rocketBaseW; 
     rocket.height = rocket.width * realRatio;
     rocket.y = canvas.height - rocket.height - 40;
 };
 
-// Variables globales de jeu
+// Variables globales
 let score = 0;
 let gameSpeed = 4;
 let gameOver = false;
 
-// Gestion du fond d'écran
 let fondY = 0; 
 let phaseBoucleCiel = false;
 
@@ -285,24 +284,26 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    if (fondPret) {
+    if (fondPret && imgFond.naturalWidth > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
         let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
         
-        // La limite où le haut de l'écran touche enfin le haut du fichier image
-        let limiteTransition = hauteurTotaleAffichee - canvas.height;
+        // Sécurité anti-crash si le calcul renvoie une valeur invalide au départ
+        if (hauteurTotaleAffichee > 0) {
+            let limiteTransition = hauteurTotaleAffichee - canvas.height;
 
-        if (!phaseBoucleCiel) {
-            fondY += gameSpeed * 0.4;
-            if (fondY >= limiteTransition) {
-                phaseBoucleCiel = true;
-                // On se verrouille précisément au début de la texture du ciel (tout en haut du fichier)
-                fondY = limiteTransition; 
+            if (!phaseBoucleCiel) {
+                fondY += gameSpeed * 0.4;
+                if (fondY >= limiteTransition) {
+                    phaseBoucleCiel = true;
+                    fondY = 0; // On réinitialise pour entamer proprement la boucle du ciel
+                }
+            } else {
+                fondY += gameSpeed * 0.4;
+                if (fondY >= canvas.height) {
+                    fondY = 0;
+                }
             }
-        } else {
-            // --- CORRECTION DE LA BOUCLE DU CIEL ---
-            // On fait défiler uniquement le motif du ciel sur la hauteur d'un écran (canvas.height)
-            fondY += gameSpeed * 0.4;
         }
     }
 
@@ -362,7 +363,26 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (fondPret) {
+    if (fondPret && imgFond.naturalWidth > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
 
         if (!phaseBoucleCiel) {
+            // Phase Décollage : Glisse linéaire du bas vers le haut
+            let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (fondY / echelleFond);
+            ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
+        } else {
+            // Phase Ciel Infini : Boucle fluide uniquement sur le haut de l'image (le ciel)
+            let yRelatif = (fondY % canvas.height);
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
+        }
+    } else {
+        ctx.fillStyle = "#111827";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Items
+    items.forEach(item => {
+        if (item.type === "obstacle") {
+            if (meteoritePrete) {
+                ctx.drawImage(imgMeteorite, item.x, item.y, item.width,
