@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en Puissance</title>
+    <title>Montée en Puissance - Week-end Église</title>
     <style>
         * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
-        body { background: #090d16; color: white; font-family: 'Segoe UI', Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        body { background: #0c111c; color: white; font-family: 'Segoe UI', Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
         #game-container { position: relative; width: 100%; max-width: 450px; height: 100vh; max-height: 850px; box-shadow: 0 0 40px rgba(0,0,0,0.85); background: #111; overflow: hidden; }
         canvas { display: block; width: 100%; height: 100%; }
         
@@ -16,12 +16,12 @@
         #score-box { top: 15px; left: 15px; }
         #speed-box { top: 62px; left: 15px; }
         
-        /* Super Jauge */
+        /* Super Jauge (Maquette originale) */
         #jauge-container { position: absolute; right: 15px; top: 100px; width: 28px; height: 280px; background: rgba(14, 23, 41, 0.85); border: 2px solid #f59e0b; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column-reverse; }
-        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #fbbf24, #f97316, #ef4444); }
+        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #fbbf24, #f97316, #ef4444); transition: height 0.1s linear; }
         #jauge-label { position: absolute; right: -52px; top: 225px; transform: rotate(-90deg); font-size: 9px; font-weight: bold; letter-spacing: 1.2px; text-transform: uppercase; color: #fbbf24; }
 
-        /* Game Over */
+        /* Écran Game Over */
         #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 24, 0.98); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 25px; z-index: 10; }
         .btn { background: #2563eb; color: white; border: none; padding: 14px 28px; font-size: 17px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
         .leaderboard { width: 100%; max-width: 320px; margin: 20px 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; }
@@ -55,11 +55,11 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// Liens directs de vos fichiers GitHub
-const URL_FOND = "https://raw.githubusercontent.com/centredevie/jeu-fusee/main/fond.jpg";
-const URL_FUSEE = "https://raw.githubusercontent.com/centredevie/jeu-fusee/main/fusee.png";
+// === LIENS GLOBAUX SÉCURISÉS SUR VOTRE COMPTE GITHUB ===
+const URL_FOND = "https://centredevie.github.io/jeu-fusee/fond.jpg";
+const URL_FUSEE = "https://centredevie.github.io/jeu-fusee/fusee.png";
+// On n'utilise PLUS d'images pour les items car elles ne chargent pas.
 
-// États de chargement pour éviter les crashs de script
 let fondCharge = false;
 let fuseeCharge = false;
 
@@ -71,21 +71,25 @@ const imgFusee = new Image();
 imgFusee.src = URL_FUSEE;
 imgFusee.onload = () => { 
     fuseeCharge = true;
-    // CALCUL DYNAMIQUE DU RATIO : Conserve les proportions d'origine de l'image
+    // CALCUL DYNAMIQUE DU RATIO ET TAILLE AUGMENTÉE
     const ratio = imgFusee.naturalHeight / imgFusee.naturalWidth;
+    rocket.width = 110; // Fusée majestueuse, non miniature
     rocket.height = rocket.width * ratio;
-    rocket.y = canvas.height - rocket.height - 70; // Repositionne proprement par rapport au bas
+    // Centre proprement
+    rocket.x = canvas.width/2 - rocket.width/2;
+    rocket.targetX = rocket.x;
+    rocket.y = canvas.height - rocket.height - 80;
 };
 
-// Éléments voxel secondaires gérés en toute sécurité
-const imgMeteore = new Image(); imgMeteore.src = 'https://i.ibb.co/3W4Tz4n/meteore-voxel.png';
-const imgBatterie = new Image(); imgBatterie.src = 'https://i.ibb.co/yNfRWhq/batterie-voxel.png';
-const imgNuage = new Image(); imgNuage.src = 'https://i.ibb.co/YyY2Z1C/nuage-voxel.png';
+// Émojis stylés et robustes pour le design de la maquette originale
+const emoMeteore = "☄️";
+const emoBooster = "🔋";
+const emoNuage = "☁️";
 
 let score = 0; let gameSpeed = 4.5; let gameOver = false; let fondY = 0;
 let superJauge = 0; let estInvincible = false; let screenShake = 0;
 
-// Structure de base de la fusée (La hauteur s'ajustera automatiquement dès le chargement)
+// Structure de base (la taille sera majestueuse dès le chargement)
 const rocket = { x: 192, y: 610, width: 66, height: 120, targetX: 192 };
 let items = []; let particules = []; let topScoresLocaux = [];
 
@@ -100,15 +104,16 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
     let rand = Math.random();
-    let type = rand > 0.75 ? "booster" : (rand > 0.5 ? "nuage" : "obstacle");
-    let size = type === "nuage" ? 110 : (type === "obstacle" ? 55 : 44);
+    let type = rand > 0.75 ? "booster" : (rand > 0.45 ? "nuage" : "obstacle");
+    let size = type === "nuage" ? 100 : (type === "obstacle" ? 55 : 45);
 
     items.push({
         x: Math.random() * (canvas.width - size - 20) + 10,
         y: -120,
         width: size,
-        height: type === "nuage" ? 55 : (type === "obstacle" ? 55 : 48),
-        type: type
+        height: type === "nuage" ? 50 : 50,
+        type: type,
+        angle: Math.random() * Math.PI // Pour une rotation légère
     });
     setTimeout(spawnItem, Math.max(300, 1200 - (gameSpeed * 45)));
 }
@@ -133,8 +138,9 @@ function update() {
 
     if (screenShake > 0) screenShake -= 0.1;
 
+    // Flammes rétro-propulsées pixel-art
     if (Math.random() < 0.6) {
-        ajouterParticule(rocket.x + rocket.width / 2, rocket.y + rocket.height - 5, '#f59e0b', Math.random() * 5 + 3, Math.random() * 3 + 4);
+        ajouterParticule(rocket.x + rocket.width / 2, rocket.y + rocket.height - 10, '#f59e0b', Math.random() * 5 + 3, Math.random() * 3 + 4);
     }
 
     if (estInvincible) {
@@ -151,25 +157,35 @@ function update() {
     for (let i = items.length - 1; i >= 0; i--) {
         let it = items[i];
         it.y += it.type === "nuage" ? gameSpeed * 0.75 : gameSpeed;
+        it.angle += 0.01;
 
         if (it.type === "nuage") {
             if (it.y > canvas.height) items.splice(i, 1);
             continue;
         }
 
+        // Zone de collision solide
         if (rocket.x + 8 < it.x + it.width && rocket.x + rocket.width - 8 > it.x &&
             rocket.y + 10 < it.y + it.height && rocket.y + rocket.height - 15 > it.y) {
             
             if (it.type === "booster") {
                 score += 30;
+                for(let k=0; k<10; k++) ajouterParticule(it.x + it.width/2, it.y + it.height/2, '#38bdf8', Math.random()*5+2, (Math.random()-0.5)*5);
                 if (!estInvincible) {
                     superJauge = Math.min(100, superJauge + 20);
                     if (superJauge >= 100) { estInvincible = true; screenShake = 3; }
                 }
                 items.splice(i, 1);
             } else {
-                if (!estInvincible) { declencherGameOver(); } 
-                else { score += 60; items.splice(i, 1); }
+                if (!estInvincible) {
+                    screenShake = 6;
+                    declencherGameOver(); 
+                } else { 
+                    score += 60; 
+                    screenShake = 3;
+                    for(let k=0; k<10; k++) ajouterParticule(it.x + it.width/2, it.y + it.height/2, '#ef4444', Math.random()*5+2, (Math.random()-0.5)*5);
+                    items.splice(i, 1); 
+                }
             }
             document.getElementById("scoreText").innerText = score;
             continue;
@@ -183,14 +199,15 @@ function draw() {
     ctx.save();
     if (screenShake > 0) ctx.translate((Math.random() - 0.5) * screenShake * 4, (Math.random() - 0.5) * screenShake * 4);
 
-    // DESSIN DU FOND SÉCURISÉ (Pas de crash si l'image charge lentement)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Rendu IMPECCABLE de votre fond d'écran (Zéro écran vert uni)
     if (fondCharge) {
         ctx.drawImage(imgFond, 0, fondY, canvas.width, canvas.height);
         ctx.drawImage(imgFond, 0, fondY - canvas.height, canvas.width, canvas.height);
     } else {
-        // Couleur de secours Minecraft en attendant le chargement
-        ctx.fillStyle = "#3b8216"; 
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Fond de secours Minecraft si ça charge trop lentement
+        ctx.fillStyle = "#3b8216"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     particules.forEach(p => {
@@ -198,23 +215,32 @@ function draw() {
         ctx.beginPath(); ctx.arc(p.x, p.y, p.taille, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     });
 
+    // Rendu des Obstacles, Nuages et Boosters via Émojis stylés et robustes
+    ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     items.forEach(it => {
-        try {
-            if (it.type === "obstacle") ctx.drawImage(imgMeteore, it.x, it.y, it.width, it.height);
-            else if (it.type === "booster") ctx.drawImage(imgBatterie, it.x, it.y, it.width, it.height);
-            else if (it.type === "nuage") { ctx.save(); ctx.globalAlpha = 0.85; ctx.drawImage(imgNuage, it.x, it.y, it.width, it.height); ctx.restore(); }
-        } catch(e) {}
+        ctx.save();
+        if (it.type === "obstacle") {
+            ctx.translate(it.x + it.width/2, it.y + it.height/2);
+            ctx.rotate(it.angle);
+            ctx.fillText(emoMeteore, 0, 0);
+        } else if (it.type === "booster") {
+            ctx.fillText(emoBooster, it.x + it.width/2, it.y + it.height/2);
+        } else if (it.type === "nuage") {
+            ctx.font = "70px Arial";
+            ctx.globalAlpha = 0.85;
+            ctx.fillText(emoNuage, it.x + it.width/2, it.y + it.height/2);
+        }
+        ctx.restore();
     });
 
-    // DESSIN DE LA FUSÉE SÉCURISÉ
+    // DESSIN DE LA VRAIE FUSÉE MASCOTTE (Majestueuse, non miniature)
     if (fuseeCharge) {
         if (estInvincible) { ctx.save(); ctx.shadowBlur = 25; ctx.shadowColor = "#fbbf24"; }
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
         if (estInvincible) ctx.restore();
     } else {
-        // Fusée temporaire en texte si le fichier met du temps à apparaître
-        ctx.font = "40px Arial";
-        ctx.fillText("🚀", rocket.x, rocket.y + 40);
+        ctx.font = "60px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("🚀", rocket.x + 33, rocket.y + 60);
     }
 
     ctx.restore();
@@ -226,13 +252,17 @@ function declencherGameOver() {
     gameOver = true;
     document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
     document.getElementById("game-over-screen").style.display = "flex";
-    let pseudo = prompt("Votre pseudo :");
-    if (!pseudo) pseudo = "Pilote";
+    
+    let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
+    if (!pseudo || pseudo.trim() === "") pseudo = "Pilote";
+
     topScoresLocaux.push({ pseudo: pseudo, score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
     let html = "";
     topScoresLocaux.slice(0, 5).forEach((j, index) => { html += `<div class="leaderboard-row"><span>${index+1}. ${j.pseudo}</span><span>${j.score} ⚡</span></div>`; });
     document.getElementById("leaderboard-content").innerHTML = html;
+
+    fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pseudo: pseudo, score: score }) });
 }
 
 function recommencer() { document.location.reload(); }
