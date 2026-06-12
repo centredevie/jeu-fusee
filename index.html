@@ -160,7 +160,7 @@
                 <span>Chargement du classement...</span>
             </div>
         </div>
-        <button class="btn" onclick="recommencer()">RECOLLER AU DÉCOLLAGE</button>
+        <button class="btn" onclick="recommencer()">REDECOLLER</button>
     </div>
 </div>
 
@@ -208,9 +208,15 @@ let energie = 100;
 const energieMax = 100;
 const drainParSeconde = 6;  // à ajuster pour le rythme
 
-// Fusée : taille “fixe” adaptée au canvas (et non plus basée sur 500x281)
-const rocketBaseW = 120;  // largeur à l'écran
-const rocketBaseH = 170;  // hauteur à l'écran
+// Fusée : taille cohérente et moins allongée
+const rocketImgW = 500;
+const rocketImgH = 281;
+
+// largeur à l'écran (ajustable)
+const rocketBaseW = 90;
+// ratio "visuel" souhaité : fusée plus haute que large mais pas étirée
+const targetRatio = 1.4;           // hauteur ≈ 1.4 * largeur
+const rocketBaseH = rocketBaseW * targetRatio;
 
 const rocket = {
     x: canvas.width / 2 - rocketBaseW / 2,
@@ -222,7 +228,7 @@ const rocket = {
 
 let items = [];             // obstacles + boosters
 let topScoresLocaux = [];   // rempli depuis Google Apps Script
-let scoresCharges = false;  // évite d'afficher un tableau local vide au début
+let scoresCharges = false;  // évite d'afficher un tableau vide trop tôt
 
 // --- INIT ---
 prechargerScores();
@@ -230,12 +236,18 @@ spawnItem();
 gameLoop();
 
 // --- SCORES ---
+function normaliserScores(data) {
+    return data
+        .filter(e => e && typeof e.pseudo === "string" && typeof e.score === "number")
+        .sort((a, b) => b.score - a.score);
+}
+
 function prechargerScores() {
     fetch(SCRIPT_URL)
         .then(res => res.json())
         .then(data => {
             if (Array.isArray(data)) {
-                topScoresLocaux = data;
+                topScoresLocaux = normaliserScores(data);
                 scoresCharges = true;
                 afficherLeTableau("", 0);
             }
@@ -253,16 +265,16 @@ function spawnItem() {
     let itemWidth, itemHeight, speedFactor;
 
     if (typeChoisi === "obstacle") {
-        // 5 tailles différentes pour la même météorite (435x410) → plus petites
-        const possibleScales = [0.18, 0.22, 0.26, 0.30, 0.34];
+        // 5 tailles plus petites pour la météorite (435x410)
+        const possibleScales = [0.10, 0.13, 0.16, 0.19, 0.22];
         const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
 
         itemWidth = 435 * scale;
         itemHeight = 410 * scale;
 
-        // petites plus rapides, grosses plus lentes
-        if (scale <= 0.2) speedFactor = 1.25;
-        else if (scale >= 0.32) speedFactor = 0.85;
+        // petites plus rapides, grosses un peu plus lentes
+        if (scale <= 0.12) speedFactor = 1.25;
+        else if (scale >= 0.20) speedFactor = 0.85;
         else speedFactor = 1.0;
 
     } else { // booster
@@ -443,9 +455,9 @@ function declencherGameOver() {
     let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
     if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
 
-    // on ajoute le score localement
+    // on ajoute le score localement, en plus de ceux déjà chargés
     topScoresLocaux.push({ pseudo: pseudo, score: score });
-    topScoresLocaux.sort((a, b) => b.score - a.score);
+    topScoresLocaux = normaliserScores(topScoresLocaux);
 
     afficherLeTableau(pseudo, score);
 
@@ -490,7 +502,7 @@ function recupererScoresSeuls() {
         .then(res => res.json())
         .then(data => {
             if (Array.isArray(data) && data.length > 0) {
-                topScoresLocaux = data;
+                topScoresLocaux = normaliserScores(data);
                 scoresCharges = true;
                 afficherLeTableau("", 0);
             }
