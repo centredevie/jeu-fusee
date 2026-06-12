@@ -3,149 +3,362 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en Puissance</title>
+    <title>Montée en Puissance - Le Jeu</title>
     <style>
-        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
         body {
-            background: #000;
+            margin: 0;
+            background: #0d1117;
             color: white;
             font-family: 'Segoe UI', Arial, sans-serif;
-            display: flex; align-items: center; justify-content: center;
-            min-height: 100vh; overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
         }
         #game-container {
             position: relative;
-            width: 100%; max-width: 450px;
-            height: 100vh; max-height: 850px;
-            box-shadow: 0 0 40px rgba(0,0,0,0.8);
-            overflow: hidden;
-            /* Correction 1 : Fond uni bleu foncé pour une boucle de ciel invisible */
-            background: #0a0f1e;
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            max-height: 800px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            background: #0b0f19;
         }
-        canvas { display: block; width: 100%; height: 100%; }
-        
-        /* HUD Styles */
-        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; z-index: 5; }
-        .hud-box { position: absolute; background: rgba(14, 23, 41, 0.7); padding: 8px 12px; border-radius: 6px; border: 2px solid #38bdf8; font-weight: bold; font-size: 14px; color: white; backdrop-filter: blur(2px); }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            padding: 15px;
+        }
+        .hud-box {
+            position: absolute;
+            background: rgba(16, 24, 48, 0.85);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 2px solid #3b82f6;
+            font-weight: bold;
+            font-size: 16px;
+        }
         #score-box { top: 15px; left: 15px; }
         #speed-box { top: 55px; left: 15px; }
-        #jauge-container { position: absolute; right: 15px; top: 15px; width: 22px; height: 180px; background: rgba(14, 23, 41, 0.7); border: 2px solid #f59e0b; border-radius: 11px; overflow: hidden; display: flex; flex-direction: column-reverse; }
-        #jauge-fill { width: 100%; height: 0%; background: linear-gradient(to top, #fbbf24, #ef4444); transition: height 0.1s linear; }
+
+        #jauge-container {
+            position: absolute;
+            right: 15px;
+            top: 100px;
+            width: 30px;
+            height: 250px;
+            background: rgba(16, 24, 48, 0.85);
+            border: 2px solid #f59e0b;
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+        #jauge-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, #f59e0b, #ef4444);
+            transition: height 0.2s ease;
+        }
+        #jauge-label {
+            position: absolute;
+            right: -52px;
+            top: 195px;
+            transform: rotate(-90deg);
+            font-size: 9px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: #f59e0b;
+        }
 
         /* Écran Game Over */
-        #game-over-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 24, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; padding: 25px; text-align: center; z-index: 10; }
-        .btn { background: #2563eb; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; }
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 15, 30, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            padding: 20px;
+            text-align: center;
+            z-index: 10;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .leaderboard {
+            width: 100%;
+            max-width: 300px;
+            margin: 20px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        <div id="ui-layer">
-            <div id="score-box" class="hud-box">PUISSANCE: <span id="scoreText">0</span> ⚡</div>
-            <div id="speed-box" class="hud-box">VITESSE: <span id="speedText">1.0x</span></div>
-            <div id="jauge-container"><div id="jauge-fill"></div></div>
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div id="score-box" class="hud-box">
+            PUISSANCE: <span id="scoreText">0</span> ⚡
         </div>
-        <div id="game-over-screen">
-            <h1 style="color: #ef4444; margin-bottom: 10px;">FIN DE TRANSMISSION</h1>
-            <p id="final-score-text" style="font-size: 18px; color: #fbbf24; font-weight: bold;">Votre puissance finale : 0 ⚡</p>
-            <button class="btn" onclick="recommencer()">RECOLLER AU DÉCOLLAGE</button>
+        <div id="speed-box" class="hud-box">
+            VITESSE: <span id="speedText">1.0x</span>
+        </div>
+        <div id="jauge-container">
+            <div id="jauge-fill"></div>
+            <div id="jauge-label">Montée en puissance</div>
         </div>
     </div>
 
+    <div id="game-over-screen">
+        <h1 style="color: #ef4444; margin-bottom: 5px;">FIN DE TRANSMISSION</h1>
+        <p id="final-score-text" style="font-size: 20px; margin-top: 5px;">Votre score : 0</p>
+        <h3>🏆 TOP 5 DU WEEK-END</h3>
+        <div class="leaderboard" id="leaderboard-content">
+            <div class="leaderboard-row"><span>Chargement du classement...</span></div>
+        </div>
+        <button class="btn" onclick="recommencer()">REDECOLLER</button>
+    </div>
+</div>
+
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yDsLpXKxaJKCsuRNZAvlvGCAoSjp_7fFjROydAhcinzHJgw3M/exec"; 
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = 450; canvas.height = 800;
+canvas.width = 450;
+canvas.height = 800;
 
-let score = 0; let gameSpeed = 5; let gameOver = false;
-let fondY1 = 0; let fondY2 = -canvas.height;
-let superJauge = 0; let estInvincible = false;
-let items = [];
+// --- CONFIGURATION DES CHEMINS D'IMAGES ---
+const PATH_FOND = 'fond_decollage.png'; // Votre nouvelle image longue
+const PATH_FUSEE = 'fusee.png';
+const PATH_METEORITE = 'meteorite.png';
+const PATH_BOOSTER = 'booster.png';
 
-// --- Correction 2 : Calibration précise pour la fusée élancée (234x646) ---
-// Nous gardons la largeur pour le gameplay, mais réduisons la hauteur affichée
-// pour qu'elle corresponde au ratio réel sans paraître écrasée.
-const targetWidth = 50; // Largeur pour la collision
-const realRatio = 646 / 234; // Ratio hauteur/largeur d'origine
+const imgFond = new Image(); imgFond.src = PATH_FOND;
+const imgFusee = new Image(); imgFusee.src = PATH_FUSEE;
+const imgMeteorite = new Image(); imgMeteorite.src = PATH_METEORITE;
+const imgBooster = new Image(); imgBooster.src = PATH_BOOSTER;
+
+let fondPret = false;
+let fuseePrete = false;
+let meteoritePrete = false;
+let boosterPret = false;
+
+imgFond.onload = () => { fondPret = true; };
+imgMeteorite.onload = () => { meteoritePrete = true; };
+imgBooster.onload = () => { boosterPret = true; };
+
+// Fusée : taille majestueuse calibrée
+const rocketBaseW = 125; 
 
 const rocket = {
-    x: canvas.width / 2 - targetWidth / 2,
-    y: 650,
-    width: targetWidth,
-    height: targetWidth * realRatio, // Hauteur calculée proportionnellement (approx 138px)
-    targetX: canvas.width / 2 - targetWidth / 2
+    x: canvas.width / 2 - rocketBaseW / 2,
+    y: canvas.height - 220,
+    width: rocketBaseW,
+    height: rocketBaseW * 2.75, // Ajustement par défaut proche de votre ratio réel
+    targetX: canvas.width / 2 - rocketBaseW / 2
 };
+
+imgFusee.onload = () => { 
+    fuseePrete = true;
+    const realRatio = imgFusee.naturalHeight / imgFusee.naturalWidth;
+    rocket.width = 125; 
+    rocket.height = rocket.width * realRatio;
+    rocket.y = canvas.height - rocket.height - 40;
+};
+
+// Variables de jeu et vitesse
+let score = 0;
+let gameSpeed = 4;
+let gameOver = false;
+
+// Nouvelle gestion du fond d'écran à défilement dynamique
+let fondY = 0; 
+let phaseBoucleCiel = false;
+let hauteurCielBoucle = 0; // Sera calculé selon la taille réelle de l'image
+
+// Énergie
+let energie = 100;
+const energieMax = 100;
+const drainParSeconde = 6;
+
+let items = [];
+let topScoresLocaux = [];
+
+prechargerScores();
+spawnItem();
+gameLoop();
+
+function prechargerScores() {
+    fetch(SCRIPT_URL)
+        .then(res => res.json())
+        .then(data => { 
+            if(Array.isArray(data)) {
+                topScoresLocaux = data;
+                afficherLeTableau("", 0);
+            }
+        })
+        .catch(() => {});
+}
 
 function spawnItem() {
     if (gameOver) return;
-    let type = Math.random() < 0.75 ? "obstacle" : "booster";
-    let size = type === "obstacle" ? 40 : 30;
+
+    let ratioObstacle = 0.8 - Math.min(0.3, (gameSpeed - 4) * 0.03);
+    if (ratioObstacle < 0.4) ratioObstacle = 0.4;
+
+    let typeChoisi = (Math.random() < ratioObstacle) ? "obstacle" : "booster";
+    let itemWidth, itemHeight, speedFactor;
+
+    if (typeChoisi === "obstacle") {
+        const possibleScales = [0.10, 0.13, 0.16, 0.19, 0.22];
+        const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
+
+        itemWidth = 435 * scale;
+        itemHeight = 410 * scale;
+
+        if (scale <= 0.12) speedFactor = 1.25;
+        else if (scale >= 0.20) speedFactor = 0.85;
+        else speedFactor = 1.0;
+
+    } else {
+        const scale = 0.24; 
+        itemWidth = 500 * scale;
+        itemHeight = 281 * scale;
+        speedFactor = 1.0;
+    }
+
     items.push({
-        x: Math.random() * (canvas.width - size),
-        y: -size,
-        width: size,
-        height: size,
-        type: type,
-        couleur: type === "obstacle" ? '#5a5d64' : '#fbbf24'
+        x: Math.random() * (canvas.width - itemWidth),
+        y: -itemHeight,
+        width: itemWidth,
+        height: itemHeight,
+        type: typeChoisi,
+        speedFactor: speedFactor
     });
-    // Apparition plus rapide quand la vitesse augmente
-    setTimeout(spawnItem, Math.max(250, 1000 - gameSpeed * 50));
+
+    setTimeout(spawnItem, Math.max(350, 1300 - (gameSpeed * 50)));
 }
 
 function update() {
     if (gameOver) return;
-    
-    // Défilement infini du ciel uni
-    fondY1 += gameSpeed * 0.5; fondY2 += gameSpeed * 0.5;
-    if (fondY1 >= canvas.height) fondY1 = -canvas.height;
-    if (fondY2 >= canvas.height) fondY2 = -canvas.height;
-    
-    // Accélération progressive
-    gameSpeed += 0.003;
-    document.getElementById("speedText").innerText = (gameSpeed / 5).toFixed(1) + "x";
-    
-    // Déplacement fluide fusée
-    rocket.x += (rocket.targetX - rocket.x) * 0.15;
-    
-    // Gestion Mode Invincible (décroissance jauge)
-    if (estInvincible) {
-        superJauge -= 0.5;
-        if (superJauge <= 0) { superJauge = 0; estInvincible = false; }
-    }
-    document.getElementById("jauge-fill").style.height = superJauge + "%";
 
-    // Items
-    for (let i = items.length - 1; i >= 0; i--) {
-        let item = items[i];
-        item.y += gameSpeed;
-        
-        // Collision simple (AABB)
-        if (rocket.x < item.x + item.width &&
-            rocket.x + rocket.width > item.x &&
-            rocket.y < item.y + item.height &&
-            rocket.y + rocket.height > item.y) {
+    // --- LOGIQUE UNIQUE DU DÉFILEMENT VERTICAL DE L'ATLAS ---
+    if (fondPret) {
+        // Au tout début, on affiche le bas de la grande image
+        if (!phaseBoucleCiel) {
+            // On fait descendre l'image
+            fondY += gameSpeed * 0.4;
             
+            // On calcule à quelle hauteur virtuelle correspond la fin du sol et de la transition
+            // Le "ciel répétitif" commence au-dessus de la hauteur du canvas
+            let limiteTransition = imgFond.naturalHeight * (canvas.width / imgFond.naturalWidth) - canvas.height;
+            
+            if (fondY >= limiteTransition) {
+                // Dès qu'on dépasse la transition, on active le mode boucle sur le ciel
+                phaseBoucleCiel = true;
+                // On cale la hauteur utile du ciel qui va boucler (la partie supérieure de l'image)
+                hauteurCielBoucle = imgFond.naturalHeight * (canvas.width / imgFond.naturalWidth) - canvas.height;
+                fondY = 0; // On réinitialise pour la boucle
+            }
+        } else {
+            // Mode boucle infinie sur la section "ciel"
+            fondY += gameSpeed * 0.4;
+            if (fondY >= canvas.height) {
+                fondY = 0;
+            }
+        }
+    }
+
+    gameSpeed += 0.002;
+    document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
+
+    energie -= drainParSeconde * (1/60);
+    if (energie < 0) energie = 0;
+    document.getElementById("jauge-fill").style.height = energie + "%";
+
+    if (energie === 0) {
+        declencherGameOver();
+        return;
+    }
+
+    rocket.x += (rocket.targetX - rocket.x) * 0.2;
+
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        item.y += gameSpeed * (item.speedFactor || 1);
+
+        const hitboxScaleRocket = 0.7;
+        const hitboxScaleItem = 0.7;
+
+        const rx = rocket.x + rocket.width * (1 - hitboxScaleRocket) / 2;
+        const ry = rocket.y + rocket.height * (1 - hitboxScaleRocket) / 2;
+        const rw = rocket.width * hitboxScaleRocket;
+        const rh = rocket.height * hitboxScaleRocket;
+
+        const ix = item.x + item.width * (1 - hitboxScaleItem) / 2;
+        const iy = item.y + item.height * (1 - hitboxScaleItem) / 2;
+        const iw = item.width * hitboxScaleItem;
+        const ih = item.height * hitboxScaleItem;
+
+        if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                score += 50;
-                if (!estInvincible) {
-                    superJauge = Math.min(100, superJauge + 25);
-                    if (superJauge >= 100) estInvincible = true;
-                }
+                score += 25;
+                energie = Math.min(energieMax, energie + 25);
             } else {
-                if (!estInvincible) declencherGameOver();
+                declencherGameOver();
+                return;
             }
             items.splice(i, 1);
             document.getElementById("scoreText").innerText = score;
             continue;
         }
-        
-        // Sortie écran
+
         if (item.y > canvas.height) {
             items.splice(i, 1);
-            score += 5;
+            score += 1;
             document.getElementById("scoreText").innerText = score;
         }
     }
@@ -153,76 +366,121 @@ function update() {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 1. Fond Ciel (Correction 1 : Bleu foncé uni appliqué ici)
-    ctx.fillStyle = '#0a0f1e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 2. Étoiles lointaines (pour la sensation de vitesse)
-    ctx.fillStyle = '#FFF';
-    for(let i=0; i<30; i++) {
-        let yStar = (i * 50 + fondY1 * 2) % canvas.height;
-        ctx.fillRect((i * 137) % canvas.width, yStar, 2, 2);
-    }
-    
-    // 3. Items
-    items.forEach(item => {
-        ctx.fillStyle = item.couleur;
-        ctx.beginPath();
-        if(item.type === "obstacle") {
-            ctx.moveTo(item.x + item.width/2, item.y);
-            ctx.lineTo(item.x + item.width, item.y + item.height);
-            ctx.lineTo(item.x, item.y + item.height);
+
+    // --- RENDU DYNAMIQUE DU FOND DE DECOLLAGE ---
+    if (fondPret) {
+        // On calcule la hauteur proportionnelle de la grande image par rapport à la largeur du canvas
+        let echelleFond = canvas.width / imgFond.naturalWidth;
+        let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
+
+        if (!phaseBoucleCiel) {
+            // Phase Décollage : On dessine la grande image en glissant du bas vers le haut
+            // Au départ, fondY = 0, on voit le bas. Plus fondY augmente, plus on monte vers le ciel
+            let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (fondY / echelleFond);
+            ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
         } else {
-            ctx.arc(item.x + item.width/2, item.y + item.height/2, item.width/2, 0, Math.PI*2);
+            // Phase Espace Infini : On boucle sur les deux premiers écrans du haut (le ciel seamless)
+            let yDuCiel = fondY;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yDuCiel, canvas.width, canvas.height);
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yDuCiel - canvas.height, canvas.width, canvas.height);
         }
-        ctx.fill();
+    } else {
+        ctx.fillStyle = "#111827";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Items
+    items.forEach(item => {
+        if (item.type === "obstacle") {
+            if (meteoritePrete) {
+                ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height);
+            } else {
+                ctx.font = "40px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+                ctx.fillText("☄️", item.x + item.width / 2, item.y);
+            }
+        } else {
+            if (boosterPret) {
+                ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height);
+            } else {
+                ctx.font = "36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+                ctx.fillText("🔋", item.x + item.width / 2, item.y);
+            }
+        }
     });
-    
-    // 4. Fusée (Correction 2 : Dessinée avec les nouvelles proportions)
-    if (estInvincible) { ctx.save(); ctx.shadowBlur = 20; ctx.shadowColor = '#fbbf24'; }
-    
-    // Corps
-    ctx.fillStyle = '#e2e8f0'; ctx.fillRect(rocket.x, rocket.y, rocket.width, rocket.height);
-    // Nez (plus élancé)
-    ctx.fillStyle = '#ef4444';
-    ctx.beginPath(); ctx.moveTo(rocket.x, rocket.y); ctx.lineTo(rocket.x + rocket.width/2, rocket.y - 25); ctx.lineTo(rocket.x + rocket.width, rocket.y); ctx.fill();
-    // Ailerons
-    ctx.fillStyle = '#ef4444'; ctx.fillRect(rocket.x - 10, rocket.y + rocket.height - 30, 10, 30); ctx.fillRect(rocket.x + rocket.width, rocket.y + rocket.height - 30, 10, 30);
-    // Hublot
-    ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(rocket.x + rocket.width/2, rocket.y + 40, 10, 0, Math.PI*2); ctx.fill();
-    // Flamme
-    ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.moveTo(rocket.x + rocket.width/4, rocket.y + rocket.height); ctx.lineTo(rocket.x + rocket.width/2, rocket.y + rocket.height + 30 + Math.random()*10); ctx.lineTo(rocket.x + 3*rocket.width/4, rocket.y + rocket.height); ctx.fill();
-    
-    if (estInvincible) ctx.restore();
+
+    // Fusée
+    if (fuseePrete) {
+        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
+    } else {
+        ctx.font = "55px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        ctx.fillText("🚀", rocket.x + rocket.width / 2, rocket.y);
+    }
 }
 
-function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
+function gameLoop() {
+    update();
+    draw();
+    if (!gameOver) requestAnimationFrame(gameLoop);
+}
 
 function declencherGameOver() {
     gameOver = true;
     document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
     document.getElementById("game-over-screen").style.display = "flex";
     
-    let pseudo = prompt("Entrez votre pseudo pour le classement :");
-    if (!pseudo || pseudo.trim() === "") pseudo = "Pilote Anonyme";
-    fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pseudo: pseudo, score: score }) });
+    let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
+    if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
+
+    topScoresLocaux.push({ pseudo: pseudo, score: score });
+    topScoresLocaux.sort((a, b) => b.score - a.score);
+    
+    afficherLeTableau(pseudo, score);
+
+    fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pseudo: pseudo, score: score })
+    })
+    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
+    .catch(() => {});
+}
+
+function afficherLeTableau(monPseudo, monScore) {
+    let html = "";
+    if(topScoresLocaux.length === 0) {
+        html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
+    } else {
+        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
+            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
+            html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+        });
+    }
+    document.getElementById("leaderboard-content").innerHTML = html;
+}
+
+function recupererScoresSeuls() {
+    fetch(SCRIPT_URL)
+    .then(res => res.json())
+    .then(data => { 
+        if(data && data.length > 0) { 
+            topScoresLocaux = data;
+            topScoresLocaux.sort((a, b) => b.score - a.score);
+            afficherLeTableau("", 0); 
+        } 
+    })
+    .catch(() => {});
 }
 
 function recommencer() { document.location.reload(); }
 
 function piloter(clientX) {
     const rect = canvas.getBoundingClientRect();
-    let scaleX = canvas.width / rect.width;
-    rocket.targetX = (clientX - rect.left) * scaleX - rocket.width / 2;
-    // Limites latérales
-    if (rocket.targetX < 15) rocket.targetX = 15;
-    if (rocket.targetX > canvas.width - rocket.width - 15) rocket.targetX = canvas.width - rocket.width - 15;
+    let echelle = canvas.width / rect.width;
+    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * echelle) - rocket.width / 2));
 }
-window.addEventListener("mousemove", (e) => piloter(e.clientX));
-window.addEventListener("touchmove", (e) => { if (e.touches.length > 0) piloter(e.touches[0].clientX); });
-spawnItem();
-gameLoop();
+window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
+window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
 </script>
 </body>
 </html>
