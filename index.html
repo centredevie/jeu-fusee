@@ -171,7 +171,7 @@ canvas.width = 450;
 canvas.height = 800;
 
 // --- CONFIGURATION DES CHEMINS D'IMAGES ---
-const PATH_FOND = 'fond_decollage.png'; 
+const PATH_FOND = 'fond_decollapse.png'; 
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
 const PATH_BOOSTER = 'booster.png';
@@ -190,7 +190,7 @@ imgFond.onload = () => { fondPret = true; };
 imgMeteorite.onload = () => { meteoritePrete = true; };
 imgBooster.onload = () => { boosterPret = true; };
 
-// --- CONFIGURATION FORMAT FUSÉE (Élancée & Proportionnelle) ---
+// --- CONFIGURATION FORMAT FUSÉE ---
 const rocketBaseW = 60; 
 
 const rocket = {
@@ -214,12 +214,12 @@ let score = 0;
 let gameSpeed = 4;
 let gameOver = false;
 
-// Variables pour le défilement asynchrone du décor
+// Défilement
 let defilementInitial = 0; 
 let boucleCielY = 0;
 let phaseBoucleCiel = false;
 
-// Énergie et mécanique de survie
+// Énergie
 let energie = 100;
 const energieMax = 100;
 const drainParSeconde = 6;
@@ -285,22 +285,20 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- MISE À JOUR CALCUL DÉFILEMENT FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
         let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
         let limiteTransition = hauteurTotaleAffichee - canvas.height;
 
         if (!phaseBoucleCiel) {
-            // Phase Décollage : l'image descend pour simuler la montée
             defilementInitial += gameSpeed * 0.4;
             if (defilementInitial >= limiteTransition) {
                 phaseBoucleCiel = true;
             }
         } else {
-            // Phase Espace Infini : boucle indépendante sur la zone du ciel
+            // Dans la phase infinie, on boucle sur deux hauteurs d'écran (aller-retour miroir)
             boucleCielY += gameSpeed * 0.4;
-            if (boucleCielY >= canvas.height) {
+            if (boucleCielY >= canvas.height * 2) {
                 boucleCielY = 0;
             }
         }
@@ -362,26 +360,47 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- RENDU LOGIQUE DES DEUX PHASES DE FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
 
         if (!phaseBoucleCiel) {
-            // Rendu Décollage : Défilement linéaire du bas vers le haut
+            // Phase Décollage : Glisse linéaire classique vers le haut
             let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (defilementInitial / echelleFond);
             ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
         } else {
-            // Rendu Ciel Infini : Reproductibilité fluide en boucle infinie (Ciel stable)
-            let yRelatif = boucleCielY;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
+            // Phase Espace : Boucle en miroir (Yoyo) sur le haut de l'image
+            // On calcule la position relative dans le cycle
+            let yRelatif = boucleCielY % canvas.height;
+            let estInverse = boucleCielY >= canvas.height;
+
+            ctx.save();
+            if (!estInverse) {
+                // Écran A : Image normale descend
+                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
+                
+                // Écran B juste au-dessus : Retourné verticalement (Miroir) pour que le bleu foncé touche le bleu foncé
+                ctx.translate(0, yRelatif);
+                ctx.scale(1, -1);
+                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, -canvas.height);
+            } else {
+                // Écran A : Image inversée descend
+                ctx.translate(0, yRelatif);
+                ctx.scale(1, -1);
+                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, -canvas.height);
+                ctx.restore();
+                ctx.save();
+                
+                // Écran B juste au-dessus : Image normale pour souder le bleu clair avec le bleu clair
+                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
+            }
+            ctx.restore();
         }
     } else {
         ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Rendu des Éléments (Obstacles / Boosters)
+    // Items
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (meteoritePrete) {
@@ -400,7 +419,7 @@ function draw() {
         }
     });
 
-    // Rendu de la Fusée calibrée
+    // Fusée
     if (fuseePrete) {
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
     } else {
