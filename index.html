@@ -171,7 +171,7 @@ canvas.width = 450;
 canvas.height = 800;
 
 // --- CONFIGURATION DES CHEMINS D'IMAGES ---
-const PATH_FOND = 'fond_decollapse.png'; 
+const PATH_FOND = 'fond_decollage.png'; 
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
 const PATH_BOOSTER = 'booster.png';
@@ -214,10 +214,9 @@ let score = 0;
 let gameSpeed = 4;
 let gameOver = false;
 
-// Défilement
-let defilementInitial = 0; 
-let boucleCielY = 0;
-let phaseBoucleCiel = false;
+// Défilement linéaire unique vers le haut
+let defilementY = 0; 
+let espaceAtteint = false;
 
 // Énergie
 let energie = 100;
@@ -285,22 +284,18 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    if (fondPret && imgFond.naturalHeight > 0) {
+    // --- GESTION DU DÉFILEMENT LINÉAIRE UNIQUE ---
+    if (fondPret && imgFond.naturalHeight > 0 && !espaceAtteint) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
         let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
         let limiteTransition = hauteurTotaleAffichee - canvas.height;
 
-        if (!phaseBoucleCiel) {
-            defilementInitial += gameSpeed * 0.4;
-            if (defilementInitial >= limiteTransition) {
-                phaseBoucleCiel = true;
-            }
-        } else {
-            // Dans la phase infinie, on boucle sur deux hauteurs d'écran (aller-retour miroir)
-            boucleCielY += gameSpeed * 0.4;
-            if (boucleCielY >= canvas.height * 2) {
-                boucleCielY = 0;
-            }
+        defilementY += gameSpeed * 0.4;
+        
+        // Si on a dépassé le haut de l'image, on fige la position et on active le mode espace infini uni
+        if (defilementY >= limiteTransition) {
+            defilementY = limiteTransition;
+            espaceAtteint = true;
         }
     }
 
@@ -360,43 +355,17 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // --- RENDU SÉCURISÉ DU FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let echelleFond = canvas.width / imgFond.naturalWidth;
-
-        if (!phaseBoucleCiel) {
-            // Phase Décollage : Glisse linéaire classique vers le haut
-            let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (defilementInitial / echelleFond);
-            ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
-        } else {
-            // Phase Espace : Boucle en miroir (Yoyo) sur le haut de l'image
-            // On calcule la position relative dans le cycle
-            let yRelatif = boucleCielY % canvas.height;
-            let estInverse = boucleCielY >= canvas.height;
-
-            ctx.save();
-            if (!estInverse) {
-                // Écran A : Image normale descend
-                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif, canvas.width, canvas.height);
-                
-                // Écran B juste au-dessus : Retourné verticalement (Miroir) pour que le bleu foncé touche le bleu foncé
-                ctx.translate(0, yRelatif);
-                ctx.scale(1, -1);
-                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, -canvas.height);
-            } else {
-                // Écran A : Image inversée descend
-                ctx.translate(0, yRelatif);
-                ctx.scale(1, -1);
-                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, -canvas.height);
-                ctx.restore();
-                ctx.save();
-                
-                // Écran B juste au-dessus : Image normale pour souder le bleu clair avec le bleu clair
-                ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, canvas.height / echelleFond, 0, yRelatif - canvas.height, canvas.width, canvas.height);
-            }
-            ctx.restore();
-        }
+        
+        // On calcule la portion de l'image à afficher
+        let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (defilementY / echelleFond);
+        
+        ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
     } else {
-        ctx.fillStyle = "#0b0f19";
+        // Couleur de secours si l'image n'est pas encore chargée (Bleu nuit de l'espace)
+        ctx.fillStyle = "#14213d";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
@@ -411,89 +380,4 @@ function draw() {
             }
         } else {
             if (boosterPret) {
-                ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height);
-            } else {
-                ctx.font = "36px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
-                ctx.fillText("🔋", item.x + item.width / 2, item.y);
-            }
-        }
-    });
-
-    // Fusée
-    if (fuseePrete) {
-        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-    } else {
-        ctx.font = "55px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
-        ctx.fillText("🚀", rocket.x + rocket.width / 2, rocket.y);
-    }
-}
-
-function gameLoop() {
-    update();
-    draw();
-    if (!gameOver) requestAnimationFrame(gameLoop);
-}
-
-function declencherGameOver() {
-    gameOver = true;
-    document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
-    document.getElementById("game-over-screen").style.display = "flex";
-    
-    let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
-    if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
-
-    topScoresLocaux.push({ pseudo: pseudo, score: score });
-    topScoresLocaux.sort((a, b) => b.score - a.score);
-    
-    afficherLeTableau(pseudo, score);
-
-    fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pseudo: pseudo, score: score })
-    })
-    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
-    .catch(() => {});
-}
-
-function afficherLeTableau(monPseudo, monScore) {
-    let html = "";
-    if(topScoresLocaux.length === 0) {
-        html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
-    } else {
-        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
-            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
-            html += `<div class="leaderboard-row" ${style}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
-        });
-    }
-    document.getElementById("leaderboard-content").innerHTML = html;
-}
-
-function recupererScoresSeuls() {
-    fetch(SCRIPT_URL)
-    .then(res => res.json())
-    .then(data => { 
-        if(data && data.length > 0) { 
-            topScoresLocaux = data;
-            topScoresLocaux.sort((a, b) => b.score - a.score);
-            afficherLeTableau("", 0); 
-        } 
-    })
-    .catch(() => {});
-}
-
-function recommencer() { document.location.reload(); }
-
-function piloter(clientX) {
-    const rect = canvas.getBoundingClientRect();
-    let echelle = canvas.width / rect.width;
-    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * echelle) - rocket.width / 2));
-}
-window.addEventListener("mousemove", (e) => { piloter(e.clientX); });
-window.addEventListener("touchmove", (e) => { 
-    if(e.touches.length > 0) piloter(e.touches[0].clientX); 
-}, { passive: false });
-</script>
-</body>
-</html>
+                ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height
