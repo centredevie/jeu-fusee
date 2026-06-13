@@ -217,7 +217,7 @@ const rocket = {
 
 // Variables globales de jeu
 let score = 0;
-let gameSpeed = 4;
+let gameSpeed = 4; // Vitesse de base (4 correspond à 1.0x à l'affichage)
 let gameOver = false;
 let fondY = 0;
 
@@ -229,7 +229,7 @@ const drainParSeconde = 5.2;
 let items = [];
 let topScoresLocaux = [];
 
-// Lancement immédiat (plus de blocage)
+// Lancement immédiat
 prechargerScores();
 spawnItem();
 gameLoop();
@@ -255,14 +255,17 @@ function spawnItem() {
     let sousType = "meteorite";
 
     if (typeChoisi === "obstacle") {
-        if(Math.random() < 0.20) {
+        // Condition : Les satellites n'apparaissent QUE si la vitesse affichée >= 2.0x (gameSpeed >= 8)
+        if(gameSpeed >= 8 && Math.random() < 0.22) {
             sousType = "satellite";
-            const scaleSatellite = 0.13; 
+            // Échelle augmentée à 0.20 pour le rendre plus imposant (environ 106px de large)
+            const scaleSatellite = 0.20; 
             itemWidth = 530 * scaleSatellite;
             itemHeight = 415 * scaleSatellite;
-            speedFactor = 0.4; 
-            vx = (Math.random() - 0.5) * 0.4; 
+            speedFactor = 0.35; // Encore un peu plus lent pour compenser sa grande taille
+            vx = (Math.random() - 0.5) * 0.3; 
         } else {
+            // Météorite classique
             const possibleScales = [0.11, 0.14, 0.17, 0.20];
             const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
             itemWidth = 435 * scale;
@@ -271,6 +274,7 @@ function spawnItem() {
             vx = (Math.random() - 0.5) * 2.2; 
         }
     } else {
+        // Booster d'énergie
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -386,7 +390,7 @@ function draw() {
                 if (satellitePret) {
                     ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height);
                 } else {
-                    ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+                    ctx.font = "46px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
                     ctx.fillText("🛰️", item.x + item.width / 2, item.y);
                 }
             } else {
