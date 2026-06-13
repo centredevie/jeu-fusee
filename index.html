@@ -170,7 +170,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- GESTION DES IMAGES ULTRA-SÉCURISÉE ---
+// --- GESTION DES IMAGES SANS BLOCAGE (ASYNCHRONE) ---
 const PATH_FOND = 'fond_decollage.png'; 
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
@@ -191,7 +191,7 @@ imgFusee.onload = () => {
     fuseePrete = true;
     const realRatio = imgFusee.naturalHeight / imgFusee.naturalWidth;
     rocket.width = rocketBaseW; 
-    rocket.height = rocket.width * (realRatio || 2.76);
+    rocket.height = rocket.width * realRatio;
     rocket.y = canvas.height - rocket.height - 40;
 };
 
@@ -221,15 +221,14 @@ let gameSpeed = 4;
 let gameOver = false;
 let fondY = 0;
 
-// Énergie rééquilibrée
+// Énergie équilibrée et adoucie
 let energie = 100;
 const energieMax = 100;
-const drainParSeconde = 4.0; 
+const drainParSeconde = 4.0; // Moins punitif (25 secondes d'autonomie à vide)
 
 let items = [];
 let topScoresLocaux = [];
 
-// Initialisation directe
 prechargerScores();
 spawnItem();
 gameLoop();
@@ -249,15 +248,14 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
+    // Structure d'origine restaurée : 70% obstacles, 30% boosters (généreux en énergie)
     let typeChoisi = (Math.random() < 0.70) ? "obstacle" : "booster";
-    let itemWidth = 50;
-    let itemHeight = 50;
-    let speedFactor = 1.0;
+    let itemWidth, itemHeight, speedFactor;
     let vx = 0;
     let sousType = "meteorite";
 
     if (typeChoisi === "obstacle") {
-        if (gameSpeed >= 8 && Math.random() < 0.22) {
+        if(gameSpeed >= 8 && Math.random() < 0.22) {
             sousType = "satellite";
             const scaleSatellite = 0.20; 
             itemWidth = 530 * scaleSatellite;
@@ -265,7 +263,6 @@ function spawnItem() {
             speedFactor = 0.35; 
             vx = (Math.random() - 0.5) * 0.3; 
         } else {
-            sousType = "meteorite";
             const possibleScales = [0.11, 0.14, 0.17, 0.20];
             const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
             itemWidth = 435 * scale;
@@ -274,7 +271,6 @@ function spawnItem() {
             vx = (Math.random() - 0.5) * 2.2; 
         }
     } else {
-        sousType = "booster";
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -352,7 +348,7 @@ function update() {
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
                 score += 15;
-                energie = Math.min(energieMax, energie + 18); 
+                energie = Math.min(energieMax, energie + 18); // Rend +18% de batterie
             } else {
                 declencherGameOver();
                 return;
@@ -413,46 +409,3 @@ function draw() {
 
     // Rendu de la Fusée
     if (fuseePrete) {
-        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-    } else {
-        ctx.font = "55px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
-        ctx.fillText("🚀", rocket.x + rocket.width / 2, rocket.y);
-    }
-}
-
-function gameLoop() {
-    update();
-    draw();
-    if (!gameOver) requestAnimationFrame(gameLoop);
-}
-
-function declencherGameOver() {
-    gameOver = true;
-    document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
-    document.getElementById("game-over-screen").style.display = "flex";
-    
-    let pseudo = prompt("Entrez votre pseudo pour le classement du week-end :");
-    if (!pseudo || pseudo.trim() === "") pseudo = "Anonyme";
-
-    topScoresLocaux.push({ pseudo: pseudo, score: score });
-    topScoresLocaux.sort((a, b) => b.score - a.score);
-    
-    afficherLeTableau(pseudo, score);
-
-    fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pseudo: pseudo, score: score })
-    })
-    .then(() => { setTimeout(recupererScoresSeuls, 1000); })
-    .catch(() => {});
-}
-
-function afficherLeTableau(monPseudo, monScore) {
-    let html = "";
-    if(topScoresLocaux.length === 0) {
-        html = '<div class="leaderboard-row"><span>Aucun score. Soyez le premier !</span></div>';
-    } else {
-        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
-            let style = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b;
