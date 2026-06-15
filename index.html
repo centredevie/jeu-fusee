@@ -219,7 +219,7 @@ imgFusee.onload = () => {
 
 // Variables globales de jeu
 let score = 0;
-let gameSpeed = 4; 
+let gameSpeed = 4; // Vitesse de base (4 = 1.0x)
 let timeElapsed = 0; 
 let gameOver = false;
 
@@ -228,7 +228,7 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// Énergie (Toujours à 15% mais le départ est moins passif)
+// Énergie (Départ à 15%)
 let energie = 15;
 const energieMax = 100;
 const drainParSeconde = 5.2; 
@@ -255,22 +255,22 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
-    let multiplicateurVisuel = gameSpeed / 4;
+    let multVisuel = gameSpeed / 4;
     
-    // Équilibrage des probabilités d'apparition
-    let chanceBooster = 1.0; 
-    if (multiplicateurVisuel >= 1.8 && multiplicateurVisuel < 2.5) {
+    // Taux d'apparition des boosters par palier de vitesse
+    let chanceBooster = 1.0; // 100% au début
+    if (multVisuel >= 1.5 && multVisuel < 2.5) {
         chanceBooster = 0.35; 
-    } else if (multiplicateurVisuel >= 2.5 && multiplicateurVisuel < 3.2) {
+    } else if (multVisuel >= 2.5 && multVisuel < 3.2) {
         chanceBooster = 0.38;
-    } else if (multiplicateurVisuel >= 3.2) {
-        chanceBooster = 0.45; 
+    } else if (multVisuel >= 3.2) {
+        chanceBooster = 0.45; // Plus fréquent à haute vitesse
     }
 
     let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
     
-    // Phase de départ : uniquement des boosters
-    if (multiplicateurVisuel < 1.8) {
+    // --- Phase 1 : Boosters uniquement jusqu'à 1.5x ---
+    if (multVisuel < 1.5) {
         typeChoisi = "booster";
     }
 
@@ -282,37 +282,41 @@ function spawnItem() {
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        // Gestion des paliers d'apparition des obstacles
-        if (multiplicateurVisuel >= 3.2) {
-            // Très haute vitesse : introduction équilibrée des missiles, météorites et rares satellites
+        
+        // --- LOGIQUE DE PROGRESSION DES OBSTACLES ---
+        if (multVisuel >= 1.5 && multVisuel < 2.5) {
+            // Uniquement des satellites
+            sousType = "satellite";
+        } 
+        else if (multVisuel >= 2.5 && multVisuel < 3.2) {
+            // Satellites réduits, ajout des météorites
+            // Probabilité : 30% Satellite, 70% Météorite
+            sousType = (Math.random() < 0.30) ? "satellite" : "meteorite";
+        } 
+        else {
+            // Vitesse >= 3.2x : Uniquement Missiles et Météorites (Pas de satellites)
+            // Probabilité : 40% Missile, 60% Météorite
             let de = Math.random();
-            if (de < 0.50) {
-                sousType = "meteorite";
-            } else if (de >= 0.50 && de < 0.85) {
+            if (de < 0.40) {
                 sousType = "missile";
             } else {
-                sousType = "satellite"; // Taux d'apparition des satellites très modéré ici aussi
+                sousType = "meteorite";
             }
-        } else if (multiplicateurVisuel >= 2.5) {
-            // Phase intermédiaire : Météorites majoritaires + Satellites au compte-gouttes
-            sousType = (Math.random() < 0.22) ? "satellite" : "meteorite";
-        } else {
-            // Phase initiale des obstacles (1.8x à 2.5x)
-            sousType = "meteorite";
         }
 
+        // Configuration des physiques
         if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
-            speedFactor = 0.20; // Obstacle lent d'origine
+            speedFactor = 0.20; // Obstacle lent
             vx = (Math.random() - 0.5) * 0.2; 
         } else if (sousType === "missile") {
-            speedFactor = 1.4; // Boosté pour descendre TRÈS vite (ne tombe plus du tout au rythme du satellite !)
+            speedFactor = 1.4; // Rapide
             const scaleMissile = 0.15;
             itemWidth = 170 * scaleMissile;
             itemHeight = 486 * scaleMissile;
-            estTraqueur = true;
+            estTraqueur = true; // Tête chercheuse
             
             let centreRocketX = rocket.x + rocket.width / 2;
             let centreItemX = xInitialProvisoire + itemWidth / 2;
@@ -320,15 +324,17 @@ function spawnItem() {
             vx = (centreRocketX - centreItemX) * 0.025;
             vx = Math.max(-3.8, Math.min(3.8, vx)); 
         } else {
+            // Météorite
             sousType = "meteorite";
             const possibleScales = [0.11, 0.14, 0.17, 0.20];
             const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
             itemWidth = 435 * scale;
             itemHeight = 410 * scale;
-            speedFactor = (scale <= 0.14) ? 1.3 : 0.9;
+            speedFactor = (scale <= 0.14) ? 1.3 : 0.9; // Les petites sont plus rapides
             vx = (Math.random() - 0.5) * 2.2; 
         }
     } else {
+        // Booster
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -348,8 +354,8 @@ function spawnItem() {
         traqueur: estTraqueur
     });
 
-    // Fréquence de spawn ajustée : un peu plus d'espace au tout début, puis s'accélère
-    let delaiDeBase = (multiplicateurVisuel < 1.8) ? 1600 : 1400;
+    // Fréquence d'apparition
+    let delaiDeBase = (multVisuel < 1.5) ? 1450 : 1400;
     let prochainSpawn = Math.max(380, delaiDeBase - (gameSpeed * 65));
     setTimeout(spawnItem, prochainSpawn);
 }
@@ -379,6 +385,7 @@ function update() {
     }
 
     timeElapsed += 1;
+    // Accélération courbe, max à 4.0x (gameSpeed = 16)
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0012) * 5.5; 
     if (gameSpeed > 16) gameSpeed = 16; 
 
