@@ -257,14 +257,14 @@ function spawnItem() {
 
     let multVisuel = gameSpeed / 4;
     
-    // --- RECALIBRAGE DES PROBABILITÉS DES BOOSTERS ---
+    // --- RECALIBRAGE PAR ZONE POUR ASSURER L'APPROVISIONNEMENT ---
     let chanceBooster = 1.0; 
     if (multVisuel >= 1.5 && multVisuel < 2.5) {
-        chanceBooster = 0.28; // Réduit (anciennement 0.35)
+        chanceBooster = 0.36; // Augmenté (28% -> 36%) pour redonner de l'air pendant les satellites
     } else if (multVisuel >= 2.5 && multVisuel < 3.2) {
-        chanceBooster = 0.20; // Réduit (anciennement 0.38)
+        chanceBooster = 0.22; // Légèrement ajusté
     } else if (multVisuel >= 3.2) {
-        chanceBooster = 0.15; // Fortement réduit (anciennement 0.45) pour le endgame
+        chanceBooster = 0.16; // Reste rare pour le endgame tendu
     }
 
     let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
