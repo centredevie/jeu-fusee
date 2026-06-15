@@ -223,8 +223,10 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Variables de contrôle du défilement
+// Variables du défilement sectorisé
 let cameraY = 0; 
+let loopSpaceY = 0;
+let atteintEspaceEnHaut = false;
 
 // Énergie
 let energie = 100;
@@ -287,12 +289,11 @@ function spawnItem() {
             }
         }
 
-        // --- RETOUR AUX VITESSE D'ORIGINE POUR LES SATELLITES ---
         if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
-            speedFactor = 0.20; // Reconfiguration d'origine lente
+            speedFactor = 0.20; 
             vx = (Math.random() - 0.5) * 0.2; 
         } else if (sousType === "missile") {
             speedFactor = 1.1; 
@@ -341,23 +342,27 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- MISE À JOUR LOGIQUE DU FOND À L'ÉCHELLE ÉCRAN ---
+    // --- LOGIQUE SÉPARÉE POUR LE DÉFILEMENT DU FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let ratioAjustement = canvas.width / imgFond.naturalWidth;
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
-        
-        // La hauteur de la zone espace (pixels 0 à 733 du haut) recalculée à l'échelle de l'écran
         let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
 
-        // Vitesse modérée et constante
-        cameraY += gameSpeed * 0.25;
+        // Seuil d'activation de la boucle : quand le haut (y=0) touche le haut du canvas
+        let seuilEspaceAtteint = hauteurImageSurEcran - canvas.height;
 
-        // Limite haute : le moment précis où le pixel 0 de l'image touche le haut du canvas
-        let limiteHauteAtteinte = hauteurImageSurEcran - canvas.height;
-
-        // Désormais la boucle prend parfaitement en compte l'échelle sur l'écran
-        if (cameraY >= limiteHauteAtteinte) {
-            cameraY = limiteHauteAtteinte - hauteurZoneBoucleSurEcran + ((cameraY - limiteHauteAtteinte) % hauteurZoneBoucleSurEcran);
+        if (!atteintEspaceEnHaut) {
+            cameraY += gameSpeed * 0.25;
+            if (cameraY >= seuilEspaceAtteint) {
+                atteintEspaceEnHaut = true;
+                loopSpaceY = 0; // On initialise le compteur de la boucle infinie
+            }
+        } else {
+            // Une fois là-haut, on incrémente uniquement l'index de boucle sur la zone 0-733px
+            loopSpaceY += gameSpeed * 0.25;
+            if (loopSpaceY >= hauteurZoneBoucleSurEcran) {
+                loopSpaceY = loopSpaceY % hauteurZoneBoucleSurEcran;
+            }
         }
     }
 
@@ -431,20 +436,29 @@ function draw() {
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
         let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
 
-        // Position Y de l'image principale sur le canvas
-        let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
+        if (!atteintEspaceEnHaut) {
+            // --- PHASE 1 : MONTEE GLOBALE ---
+            // On dessine simplement l'image entière qui défile depuis le bas
+            let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
+            ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
+        } else {
+            // --- PHASE 2 : BOUCLE SUR L'ESPACE UNIQUEMENT (0 à 733px) ---
+            // On extrait de manière étanche uniquement les 733 premiers pixels du haut de l'image
+            let y1 = loopSpaceY;
+            let y2 = loopSpaceY - hauteurZoneBoucleSurEcran;
 
-        // 1. Dessin du fond de base
-        ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
-
-        // 2. Dessin du raccord infini (Texture espace 0 à 733px source) collé juste au-dessus
-        let yRaccord = renduY - hauteurZoneBoucleSurEcran;
-        
-        if (renduY > -hauteurZoneBoucleSurEcran) {
+            // Premier panneau espace qui descend
             ctx.drawImage(
                 imgFond, 
-                0, 0, imgFond.naturalWidth, 733, 
-                0, yRaccord, canvas.width, hauteurZoneBoucleSurEcran
+                0, 0, imgFond.naturalWidth, 733, // Source stricte
+                0, y1, canvas.width, hauteurZoneBoucleSurEcran // Destination
+            );
+
+            // Deuxième panneau espace raccordé juste au-dessus
+            ctx.drawImage(
+                imgFond, 
+                0, 0, imgFond.naturalWidth, 733, // Source stricte
+                0, y2, canvas.width, hauteurZoneBoucleSurEcran // Destination
             );
         }
     } else {
