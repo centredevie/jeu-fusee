@@ -171,7 +171,7 @@ canvas.width = 450;
 canvas.height = 800;
 
 // --- CONFIGURATION DES CHEMINS D'IMAGES ---
-const PATH_FOND = 'Agrandir image ciel  fond espace.png'; // Nom mis à jour d'après ton fichier
+const PATH_FOND = 'Agrandir image ciel  fond espace.png'; 
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
 const PATH_BOOSTER = 'booster.png';
@@ -223,8 +223,10 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Positionnement du fond (en pixels réels sur la texture originale de 2048px de haut)
-let fondYPixels = 0; 
+// Progression globale du défilement (en pixels sur l'écran)
+let fondYGlobal = 0; 
+let phaseEspaceInfinie = false;
+let fondYLoop = 0; // Utilisé une fois dans l'espace
 
 // Énergie
 let energie = 100;
@@ -344,17 +346,32 @@ function update() {
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0015) * 4.2; 
     if (gameSpeed > 12.8) gameSpeed = 12.8; 
 
-    // --- LOGIQUE AVANCÉE DE DÉFILEMENT DU FOND EN PIXELS ---
+    // --- MISE À JOUR TECHNIQUE DU DÉFILEMENT ---
     if (fondPret && imgFond.naturalHeight > 0) {
-        // Multiplicateur pour convertir la vitesse de jeu en vitesse de défilement sur l'image d'origine
-        let vitesseDefilementSource = gameSpeed * 0.5;
+        let vitesseDefilement = gameSpeed * 0.4; 
         
-        fondYPixels += vitesseDefilementSource;
+        if (!phaseEspaceInfinie) {
+            fondYGlobal += vitesseDefilement;
+            
+            // Calcul de la hauteur étirée sur l'écran
+            let ratioEchelle = canvas.width / imgFond.naturalWidth; // 450 / 412
+            let hauteurTotaleAffichee = imgFond.naturalHeight * ratioEchelle; // ~2236px
 
-        // Le haut de l'image (l'espace) correspond à y=0. Le point de coupure pour la boucle est à 1315px.
-        // Dès que la tête de lecture dépasse la zone de l'espace (1315px), on boucle à l'infini dans cette section.
-        if (fondYPixels > 1315) {
-            fondYPixels = 0 + (fondYPixels - 1315);
+            // Si le haut de l'image (l'espace, y=0) atteint le haut du canvas, on active la boucle sur la zone 0-1315px
+            if (fondYGlobal >= hauteurTotaleAffichee - canvas.height) {
+                phaseEspaceInfinie = true;
+                // On initialise la boucle au niveau correspondant sur l'image source
+                fondYLoop = 0; 
+            }
+        } else {
+            // Mode espace infini : On fait défiler la zone de 1315px
+            fondYLoop += vitesseDefilement;
+            let ratioEchelle = canvas.width / imgFond.naturalWidth;
+            let hauteurZoneBoucleAffichee = 1315 * ratioEchelle; // Hauteur de l'espace sur l'écran
+            
+            if (fondYLoop >= hauteurZoneBoucleAffichee) {
+                fondYLoop = 0;
+            }
         }
     }
 
@@ -420,28 +437,24 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (fondPret && imgFond.naturalHeight > 0) {
-        // Facteur d'échelle pour adapter la largeur originale (412px) à la largeur du canvas (450px)
-        let echelleX = canvas.width / imgFond.naturalWidth;
-        let hauteurFenetreSource = canvas.height / echelleX;
+        let ratioEchelle = canvas.width / imgFond.naturalWidth; 
 
-        // Position de départ du haut du cadre de rendu sur la texture d'origine (on démarre du bas de l'image au début)
-        let departSourceY = imgFond.naturalHeight - hauteurFenetreSource - fondYPixels;
-
-        if (departSourceY >= 0) {
-            // Décollage initial normal (Terre -> Nuages -> Espace)
-            ctx.drawImage(imgFond, 0, departSourceY, imgFond.naturalWidth, hauteurFenetreSource, 0, 0, canvas.width, canvas.height);
+        if (!phaseEspaceInfinie) {
+            // --- 1. DECOLLAGE INITIAL PUIS MONTEE EN LIGNE DROITE ---
+            // On calcule la position Y sur l'écran (on commence tout en bas de l'image)
+            let yEcran = - (imgFond.naturalHeight * ratioEchelle - canvas.height) + fondYGlobal;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalHeight, 0, yEcran, canvas.width, imgFond.naturalHeight * ratioEchelle);
         } else {
-            // BOUCLE INFINIE DANS L'ESPACE (Quand on dépasse la ligne des 1315px)
-            // On sépare le dessin en deux morceaux pour simuler la continuité :
-            
-            // Partie 1 : Le reste de la texture du haut de l'espace glissant vers le bas
-            let hauteurPartie1 = -departSourceY; 
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, hauteurPartie1, 0, hauteurPartie1 * echelleX, canvas.width, canvas.height - (hauteurPartie1 * echelleX));
+            // --- 2. BOUCLE INFINIE DANS L'ESPACE (0 à 1315px) ---
+            let hauteurEspaceAffichee = 1315 * ratioEchelle; 
 
-            // Partie 2 : Le bas de la zone spatiale (pixel 1315) qui revient par le haut de l'écran
-            let hauteurPartie2 = hauteurFenetreSource - hauteurPartie1;
-            let sourceYPartie2 = 1315 - hauteurPartie2;
-            ctx.drawImage(imgFond, 0, sourceYPartie2, imgFond.naturalWidth, hauteurPartie2, 0, 0, canvas.width, hauteurPartie1 * echelleX);
+            // Premier morceau (qui glisse vers le bas)
+            let y1 = fondYLoop;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y1, canvas.width, hauteurEspaceAffichee);
+
+            // Deuxième morceau (qui réapparaît par le haut)
+            let y2 = fondYLoop - hauteurEspaceAffichee;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y2, canvas.width, hauteurEspaceAffichee);
         }
     } else {
         ctx.fillStyle = "#0b0f19";
