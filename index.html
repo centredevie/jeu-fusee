@@ -223,7 +223,7 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Unique variable de position verticale pour un défilement unifié
+// Défilement
 let cameraY = 0; 
 
 // Énergie
@@ -287,12 +287,13 @@ function spawnItem() {
             }
         }
 
+        // --- CALIBRAGE PARALLAXE DES SATELLITES CORRIGÉ ---
         if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
-            speedFactor = 0.20; 
-            vx = (Math.random() - 0.5) * 0.2; 
+            speedFactor = 1.6; // Rupture visuelle avec le fond (Tapis roulant brisé !)
+            vx = (Math.random() - 0.5) * 1.5; // Mouvement latéral plus dynamique
         } else if (sousType === "missile") {
             speedFactor = 1.1; 
             const scaleMissile = 0.15;
@@ -340,19 +341,15 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- PROGRESSION LINÉAIRE ET CONSTANTE ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let ratioAjustement = canvas.width / imgFond.naturalWidth;
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
         let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
 
-        // Vitesse du fond modérée et fluide
         cameraY += gameSpeed * 0.25;
 
-        // Point exact où le sommet absolu de l'image (y=0) touche le haut du canvas
         let limiteHauteAtteinte = hauteurImageSurEcran - canvas.height;
 
-        // Une fois le haut atteint, on boucle de manière transparente uniquement sur la hauteur de l'espace (733px convertis)
         if (cameraY >= limiteHauteAtteinte) {
             cameraY = limiteHauteAtteinte - hauteurZoneBoucleSurEcran + ((cameraY - limiteHauteAtteinte) % hauteurZoneBoucleSurEcran);
         }
@@ -428,22 +425,17 @@ function draw() {
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
         let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
 
-        // Calcul du positionnement de base (on part du bas)
         let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
 
-        // Premier dessin : l'image principale en mouvement
         ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
 
-        // Deuxième dessin de sécurité (Seamless) : Raccord de la zone espace (0 à 733px) au-dessus
-        // Il s'active naturellement de manière continue sans saut visuel
         let yRaccord = renduY - hauteurZoneBoucleSurEcran;
         
-        // On dessine le raccord seulement si le haut de l'image commence à entrer dans le canvas
         if (renduY > -hauteurZoneBoucleSurEcran) {
             ctx.drawImage(
                 imgFond, 
-                0, 0, imgFond.naturalWidth, 733, // Portion source (l'espace)
-                0, yRaccord, canvas.width, hauteurZoneBoucleSurEcran // Destination écran
+                0, 0, imgFond.naturalWidth, 733, 
+                0, yRaccord, canvas.width, hauteurZoneBoucleSurEcran
             );
         }
     } else {
