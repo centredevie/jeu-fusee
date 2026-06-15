@@ -228,10 +228,10 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// Énergie (Départ à 15%)
-let energie = 15;
+// Énergie (Départ à 12% + Drain augmenté = début très difficile)
+let energie = 12;
 const energieMax = 100;
-const drainParSeconde = 5.2; 
+const drainParSeconde = 6.0; 
 
 let items = [];
 let topScoresLocaux = [];
@@ -276,15 +276,23 @@ function spawnItem() {
     let vx = 0;
     let sousType = "meteorite";
     let estTraqueur = false;
+    let skipSpawn = false;
 
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
         if (multVisuel >= 1.5 && multVisuel < 2.5) {
-            sousType = "satellite";
+            // --- RÉDUCTION DU NOMBRE DE SATELLITES ---
+            // 35% de chances de sauter ce tour pour aérer le passage
+            if (Math.random() < 0.35) {
+                skipSpawn = true;
+            } else {
+                sousType = "satellite";
+            }
         } 
         else if (multVisuel >= 2.5 && multVisuel < 3.2) {
-            sousType = (Math.random() < 0.25) ? "satellite" : "meteorite";
+            // Moins de satellites, apparition des météorites
+            sousType = (Math.random() < 0.20) ? "satellite" : "meteorite";
         } 
         else {
             let de = Math.random();
@@ -300,7 +308,7 @@ function spawnItem() {
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
             speedFactor = 0.20; 
-            vx = (Math.random() - 0.5) * 0.1; // Dérive latérale réduite pour éviter de coincer le joueur
+            vx = (Math.random() - 0.5) * 0.1; 
         } else if (sousType === "missile") {
             speedFactor = 1.4; 
             const scaleMissile = 0.15;
@@ -330,28 +338,29 @@ function spawnItem() {
         vx = 0;
     }
 
-    items.push({
-        x: Math.max(0, Math.min(canvas.width - itemWidth, xInitialProvisoire)),
-        y: -itemHeight,
-        width: itemWidth,
-        height: itemHeight,
-        type: typeChoisi,
-        sousType: sousType,
-        speedFactor: speedFactor,
-        vx: vx,
-        traqueur: estTraqueur
-    });
+    if (!skipSpawn) {
+        items.push({
+            x: Math.max(0, Math.min(canvas.width - itemWidth, xInitialProvisoire)),
+            y: -itemHeight,
+            width: itemWidth,
+            height: itemHeight,
+            type: typeChoisi,
+            sousType: sousType,
+            speedFactor: speedFactor,
+            vx: vx,
+            traqueur: estTraqueur
+        });
+    }
 
-    // --- TIMING RECALIBRÉ ---
+    // --- TIMING RECALIBRÉ POUR ÉVITER LES MURS ---
     let delaiDeBase = 1400;
     if (multVisuel < 1.5) {
-        delaiDeBase = 1450;
+        delaiDeBase = 1550; // Plus espacé au début = moins le droit à l'erreur avec le gros drain
     } else if (multVisuel >= 1.5 && multVisuel < 2.5) {
-        // Donne beaucoup plus d'espace spécifiquement pour la phase de slalom des satellites
-        delaiDeBase = 1750; 
+        delaiDeBase = 1950; // Plus d'espace entre les vagues de satellites
     }
     
-    let prochainSpawn = Math.max(450, delaiDeBase - (gameSpeed * 60));
+    let prochainSpawn = Math.max(480, delaiDeBase - (gameSpeed * 60));
     setTimeout(spawnItem, prochainSpawn);
 }
 
@@ -406,7 +415,6 @@ function update() {
             item.vx = -item.vx;
         }
 
-        // Hitboxes ajustées : 0.55 pour le satellite pour laisser passer la fusée plus facilement
         const hitboxScaleRocket = 0.7;
         const hitboxScaleItem = item.sousType === "satellite" ? 0.55 : (item.sousType === "missile" ? 0.6 : 0.7);
 
