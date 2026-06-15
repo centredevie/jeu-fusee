@@ -223,8 +223,8 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Variable de défilement linéaire simple (identique au premier système de fond)
-let fondY = 0; 
+// Nouvelle variable de suivi de la caméra à l'écran
+let cameraY = 0; 
 
 // Énergie
 let energie = 100;
@@ -340,17 +340,20 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- SYSTEME DE DEFILEMENT SECURISE ---
+    // --- MISE À JOUR ULTRA SIMPLE DE LA POSITION DU FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
-        let echelleFond = canvas.width / imgFond.naturalWidth;
-        let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
-        let limiteTransition = hauteurTotaleAffichee - canvas.height;
+        // Largeur finale à l'écran : canvas.width (450px)
+        // Hauteur proportionnelle à l'écran pour une image originale de 412x2048px :
+        let ratioAjustement = canvas.width / imgFond.naturalWidth; // 450 / 412 = ~1.092
+        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement; // 2048 * 1.092 = ~2236px
+        
+        // La limite max où s'arrêter pour afficher le tout premier pixel du haut de l'image (l'espace)
+        let limiteMaxDefilement = hauteurImageSurEcran - canvas.height; 
 
-        // On descend doucement l'image d'après la vitesse
-        if (fondY < limiteTransition) {
-            fondY += gameSpeed * 0.4;
+        if (cameraY < limiteMaxDefilement) {
+            cameraY += gameSpeed * 0.4; 
         } else {
-            fondY = limiteTransition; // Reste bloqué sur le haut (l'espace uni) à la fin
+            cameraY = limiteMaxDefilement; // Stop la progression linéaire, on est dans l'espace
         }
     }
 
@@ -419,17 +422,19 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- RENDU CLASSIQUE ULTRA-ROBUSTE ---
+    // --- DESSIN DU FOND EN VERSION SÉCURISÉE (SANS DECOUPAGE SOURCE CORROMPU) ---
     if (fondPret && imgFond.naturalHeight > 0) {
-        let echelleFond = canvas.width / imgFond.naturalWidth;
-        let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (fondY / echelleFond);
-        
+        let ratioAjustement = canvas.width / imgFond.naturalWidth;
+        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
+
+        // Position de rendu vertical à l'écran. 
+        // On commence tout en bas (coordonnée négative pour cacher le haut de l'image)
+        let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
+
         ctx.drawImage(
             imgFond, 
-            0, Math.max(0, sourceY), 
-            imgFond.naturalWidth, canvas.height / echelleFond, 
-            0, 0, 
-            canvas.width, canvas.height
+            0, renduY, 
+            canvas.width, hauteurImageSurEcran
         );
     } else {
         ctx.fillStyle = "#0b0f19";
