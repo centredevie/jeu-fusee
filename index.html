@@ -170,39 +170,33 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- GESTION DES IMAGES SANS BLOCAGE (ASYNCHRONE) ---
+// --- CONFIGURATION DES CHEMINS D'IMAGES ---
 const PATH_FOND = 'fond_decollage.png'; 
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
 const PATH_BOOSTER = 'booster.png';
 const PATH_SATELLITE = 'satellite.png';
+const PATH_MISSILE = 'missile.png'; // Image unique pointée vers le bas
+
+const imgFond = new Image(); imgFond.src = PATH_FOND;
+const imgFusee = new Image(); imgFusee.src = PATH_FUSEE;
+const imgMeteorite = new Image(); imgMeteorite.src = PATH_METEORITE;
+const imgBooster = new Image(); imgBooster.src = PATH_BOOSTER;
+const imgSatellite = new Image(); imgSatellite.src = PATH_SATELLITE;
+const imgMissile = new Image(); imgMissile.src = PATH_MISSILE;
 
 let fondPret = false;
 let fuseePrete = false;
 let meteoritePrete = false;
 let boosterPret = false;
 let satellitePret = false;
+let missilePret = false;
 
-const imgFond = new Image(); imgFond.src = PATH_FOND;
 imgFond.onload = () => { fondPret = true; };
-
-const imgFusee = new Image(); imgFusee.src = PATH_FUSEE;
-imgFusee.onload = () => { 
-    fuseePrete = true;
-    const realRatio = imgFusee.naturalHeight / imgFusee.naturalWidth;
-    rocket.width = rocketBaseW; 
-    rocket.height = rocket.width * realRatio;
-    rocket.y = canvas.height - rocket.height - 40;
-};
-
-const imgMeteorite = new Image(); imgMeteorite.src = PATH_METEORITE;
 imgMeteorite.onload = () => { meteoritePrete = true; };
-
-const imgBooster = new Image(); imgBooster.src = PATH_BOOSTER;
 imgBooster.onload = () => { boosterPret = true; };
-
-const imgSatellite = new Image(); imgSatellite.src = PATH_SATELLITE;
 imgSatellite.onload = () => { satellitePret = true; };
+imgMissile.onload = () => { missilePret = true; };
 
 // --- CONFIGURATION FORMAT FUSÉE ---
 const rocketBaseW = 60; 
@@ -215,13 +209,21 @@ const rocket = {
     targetX: canvas.width / 2 - rocketBaseW / 2
 };
 
+imgFusee.onload = () => { 
+    fuseePrete = true;
+    const realRatio = imgFusee.naturalHeight / imgFusee.naturalWidth;
+    rocket.width = rocketBaseW; 
+    rocket.height = rocket.width * realRatio;
+    rocket.y = canvas.height - rocket.height - 40;
+};
+
 // Variables globales de jeu
 let score = 0;
-let gameSpeed = 4; // Vitesse de base (4 correspond à 1.0x à l'affichage)
+let gameSpeed = 4; // Vitesse de base (4 correspond à 1.0x)
 let gameOver = false;
 let fondY = 0;
 
-// Énergie équilibrée pour la simulation de vol
+// Énergie
 let energie = 100;
 const energieMax = 100;
 const drainParSeconde = 5.2; 
@@ -229,7 +231,6 @@ const drainParSeconde = 5.2;
 let items = [];
 let topScoresLocaux = [];
 
-// Lancement immédiat
 prechargerScores();
 spawnItem();
 gameLoop();
@@ -249,33 +250,54 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
-    // RESTAURATION : Augmentation ciblée de la fréquence des boosters (30% booster / 70% obstacle)
     let typeChoisi = (Math.random() < 0.70) ? "obstacle" : "booster";
     let itemWidth, itemHeight, speedFactor;
     let vx = 0;
     let sousType = "meteorite";
+    let estTraqueur = false;
+
+    let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        // Condition : Les satellites n'apparaissent QUE si la vitesse affichée >= 2.0x (gameSpeed >= 8)
+        // SATELLITE BLOQUANT (Vitesse >= 2.0x soit gameSpeed >= 8)
         if(gameSpeed >= 8 && Math.random() < 0.22) {
             sousType = "satellite";
-            // Échelle augmentée à 0.20 pour le rendre plus imposant (environ 106px de large)
-            const scaleSatellite = 0.20; 
-            itemWidth = 530 * scaleSatellite;
+            const scaleSatellite = 0.30; 
+            itemWidth = 530 * scaleSatellite; // Bloque ~1/3 de l'écran
             itemHeight = 415 * scaleSatellite;
-            speedFactor = 0.35; // Encore un peu plus lent pour compenser sa grande taille
-            vx = (Math.random() - 0.5) * 0.3; 
+            speedFactor = 0.20; // Très lent, agit comme un mur temporaire
+            vx = (Math.random() - 0.5) * 0.2; 
         } else {
-            // Météorite classique
-            const possibleScales = [0.11, 0.14, 0.17, 0.20];
-            const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
-            itemWidth = 435 * scale;
-            itemHeight = 410 * scale;
-            speedFactor = (scale <= 0.14) ? 1.3 : 0.9;
-            vx = (Math.random() - 0.5) * 2.2; 
+            // CONDITION MISSILE TRAQUEUR (DÈS VITESSE 3.0x soit gameSpeed >= 12)
+            if (gameSpeed >= 12 && Math.random() < 0.30) {
+                sousType = "missile";
+                estTraqueur = true;
+                speedFactor = 1.1; // Descente rapide
+                
+                // Utilisation des dimensions réelles fournies (170x486) avec un scale de 0.15
+                const scaleMissile = 0.15;
+                itemWidth = 170 * scaleMissile;
+                itemHeight = 486 * scaleMissile;
+                
+                let centreRocketX = rocket.x + rocket.width / 2;
+                let centreItemX = xInitialProvisoire + itemWidth / 2;
+                
+                // Oriente sa trajectoire X directement vers la fusée
+                vx = (centreRocketX - centreItemX) * 0.022;
+                vx = Math.max(-3.5, Math.min(3.5, vx)); 
+            } else {
+                // MÉTÉORITE STANDARD
+                sousType = "meteorite";
+                const possibleScales = [0.11, 0.14, 0.17, 0.20];
+                const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
+                itemWidth = 435 * scale;
+                itemHeight = 410 * scale;
+                speedFactor = (scale <= 0.14) ? 1.3 : 0.9;
+                vx = (Math.random() - 0.5) * 2.2; 
+            }
         }
     } else {
-        // Booster d'énergie
+        // BOOSTER D'ÉNERGIE
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -284,14 +306,15 @@ function spawnItem() {
     }
 
     items.push({
-        x: Math.random() * (canvas.width - itemWidth),
+        x: Math.max(0, Math.min(canvas.width - itemWidth, xInitialProvisoire)),
         y: -itemHeight,
         width: itemWidth,
         height: itemHeight,
         type: typeChoisi,
         sousType: sousType,
         speedFactor: speedFactor,
-        vx: vx
+        vx: vx,
+        traqueur: estTraqueur
     });
 
     let prochainSpawn = Math.max(400, 1400 - (gameSpeed * 65));
@@ -333,12 +356,14 @@ function update() {
         item.y += gameSpeed * (item.speedFactor || 1);
         item.x += item.vx;
 
+        // Les objets rebondissent sur les bords sauf s'ils sortent par le bas
         if (item.x < 0 || item.x + item.width > canvas.width) {
             item.vx = -item.vx;
         }
 
         const hitboxScaleRocket = 0.7;
-        const hitboxScaleItem = 0.7;
+        // Hitbox ajustée au plus près des formes (0.6 pour le missile fin et élancé)
+        const hitboxScaleItem = item.sousType === "satellite" ? 0.8 : (item.sousType === "missile" ? 0.6 : 0.7);
 
         const rx = rocket.x + rocket.width * (1 - hitboxScaleRocket) / 2;
         const ry = rocket.y + rocket.height * (1 - hitboxScaleRocket) / 2;
@@ -391,8 +416,32 @@ function draw() {
                 if (satellitePret) {
                     ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height);
                 } else {
-                    ctx.font = "46px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+                    ctx.font = "55px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
                     ctx.fillText("🛰️", item.x + item.width / 2, item.y);
+                }
+            } else if (item.sousType === "missile") { 
+                // --- LOGIQUE DE ROTATION DYNAMIQUE DU MISSILE ---
+                if (missilePret) {
+                    ctx.save(); // Sauvegarde l'état du canvas
+                    
+                    // On déplace le point d'ancrage (0,0) au centre exact du missile
+                    let centreX = item.x + item.width / 2;
+                    let centreY = item.y + item.height / 2;
+                    ctx.translate(centreX, centreY);
+                    
+                    // Calcul de l'angle réel en fonction du déplacement (vx = latéral, vy = gameSpeed * speedFactor)
+                    let vyReel = gameSpeed * (item.speedFactor || 1);
+                    let angle = Math.atan2(item.vx, vyReel); 
+                    
+                    ctx.rotate(-angle); // On applique la rotation (négative car l'image pointe déjà vers le bas)
+                    
+                    // On dessine l'image centrée sur le point d'ancrage
+                    ctx.drawImage(imgMissile, -item.width / 2, -item.height / 2, item.width, item.height);
+                    
+                    ctx.restore(); // Restaure l'état initial du canvas pour le reste du jeu
+                } else {
+                    ctx.font = "40px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+                    ctx.fillText("🚨", item.x + item.width / 2, item.y);
                 }
             } else {
                 if (meteoritePrete) {
