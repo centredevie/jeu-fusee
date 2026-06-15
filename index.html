@@ -219,7 +219,8 @@ imgFusee.onload = () => {
 
 // Variables globales de jeu
 let score = 0;
-let gameSpeed = 4; 
+let gameSpeed = 4; // Vitesse de départ (équivaut à 1.0x)
+let timeElapsed = 0; // Compteur de frames pour la courbe de progression
 let gameOver = false;
 let fondY = 0;
 
@@ -259,16 +260,16 @@ function spawnItem() {
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        // --- EQUILIBRAGE ICI : SATELLITE RAMENÉ À 10% DE CHANCE ---
+        // SATELLITE (Disponible dès Vitesse >= 2.0x soit gameSpeed >= 8)
         if(gameSpeed >= 8 && Math.random() < 0.10) { 
             sousType = "satellite";
-            const scaleSatellite = 0.26; // Légèrement réduit pour être plus juste
+            const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
             speedFactor = 0.20; 
             vx = (Math.random() - 0.5) * 0.2; 
         } else {
-            // MISSILE TRAQUEUR (DÈS VITESSE 3.0x soit gameSpeed >= 12)
+            // MISSILE TRAQUEUR (Disponible dès Vitesse >= 3.0x soit gameSpeed >= 12)
             if (gameSpeed >= 12 && Math.random() < 0.30) {
                 sousType = "missile";
                 estTraqueur = true;
@@ -281,6 +282,7 @@ function spawnItem() {
                 let centreRocketX = rocket.x + rocket.width / 2;
                 let centreItemX = xInitialProvisoire + itemWidth / 2;
                 
+                // Vitesse latérale légèrement lissée sur la vitesse globale
                 vx = (centreRocketX - centreItemX) * 0.022;
                 vx = Math.max(-3.5, Math.min(3.5, vx)); 
             } else {
@@ -315,7 +317,8 @@ function spawnItem() {
         traqueur: estTraqueur
     });
 
-    let prochainSpawn = Math.max(400, 1400 - (gameSpeed * 65));
+    // Fréquence de spawn stabilisée selon la vitesse
+    let prochainSpawn = Math.max(450, 1400 - (gameSpeed * 60));
     setTimeout(spawnItem, prochainSpawn);
 }
 
@@ -334,7 +337,12 @@ function update() {
         }
     }
 
-    gameSpeed += 0.0025; 
+    // --- NOUVELLE LOGIQUE DE VITESSE PROGRESSIVE (LOGARITHMIQUE) ---
+    timeElapsed += 1;
+    // Formule qui ralentit l'accélération avec le temps, avec un plafond strict à gameSpeed = 12.8 (soit 3.2x)
+    gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0015) * 4.2; 
+    if (gameSpeed > 12.8) gameSpeed = 12.8; 
+
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
 
     energie -= drainParSeconde * (1/60);
@@ -359,7 +367,6 @@ function update() {
         }
 
         const hitboxScaleRocket = 0.7;
-        // --- EQUILIBRAGE ICI : Hitbox du satellite adoucie à 0.65 au lieu de 0.8 ---
         const hitboxScaleItem = item.sousType === "satellite" ? 0.65 : (item.sousType === "missile" ? 0.6 : 0.7);
 
         const rx = rocket.x + rocket.width * (1 - hitboxScaleRocket) / 2;
@@ -425,8 +432,6 @@ function draw() {
                     let angle = Math.atan2(item.vx, vyReel); 
                     ctx.rotate(-angle);
                     ctx.drawImage(imgMissile, -item.width / 2, -item.height / 2, item.width, item.height);
-                    ctx.save(); // Correction pour équilibrer le flux de transformation
-                    ctx.restore();
                     ctx.restore();
                 } else {
                     ctx.font = "40px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "top";
