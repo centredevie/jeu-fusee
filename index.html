@@ -219,7 +219,7 @@ imgFusee.onload = () => {
 
 // Variables globales de jeu
 let score = 0;
-let gameSpeed = 4; // Vitesse interne de départ (4 = Vitesse 1.0x à l'écran)
+let gameSpeed = 4; 
 let timeElapsed = 0; 
 let gameOver = false;
 
@@ -228,7 +228,7 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// Énergie (Départ à 15% pour obliger le joueur à charger au décollage)
+// Énergie (Toujours à 15% mais le départ est moins passif)
 let energie = 15;
 const energieMax = 100;
 const drainParSeconde = 5.2; 
@@ -257,19 +257,19 @@ function spawnItem() {
 
     let multiplicateurVisuel = gameSpeed / 4;
     
-    // Dynamique adaptative des boosters selon la vitesse
-    let chanceBooster = 1.0; // 100% booster au tout début
+    // Équilibrage des probabilités d'apparition
+    let chanceBooster = 1.0; 
     if (multiplicateurVisuel >= 1.8 && multiplicateurVisuel < 2.5) {
         chanceBooster = 0.35; 
     } else if (multiplicateurVisuel >= 2.5 && multiplicateurVisuel < 3.2) {
         chanceBooster = 0.38;
     } else if (multiplicateurVisuel >= 3.2) {
-        chanceBooster = 0.45; // Plus de boosters à très haute vitesse pour compenser la survie
+        chanceBooster = 0.45; 
     }
 
     let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
     
-    // Forcer booster si en dessous de la vitesse 1.8x
+    // Phase de départ : uniquement des boosters
     if (multiplicateurVisuel < 1.8) {
         typeChoisi = "booster";
     }
@@ -282,28 +282,33 @@ function spawnItem() {
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        let poolObstacles = ["meteorite"];
-
-        // Ajouter les satellites à partir de 2.5x
-        if (multiplicateurVisuel >= 2.5) {
-            poolObstacles.push("satellite");
-        }
-        // Ajouter les missiles à partir de 3.2x
+        // Gestion des paliers d'apparition des obstacles
         if (multiplicateurVisuel >= 3.2) {
-            poolObstacles.push("missile");
+            // Très haute vitesse : introduction équilibrée des missiles, météorites et rares satellites
+            let de = Math.random();
+            if (de < 0.50) {
+                sousType = "meteorite";
+            } else if (de >= 0.50 && de < 0.85) {
+                sousType = "missile";
+            } else {
+                sousType = "satellite"; // Taux d'apparition des satellites très modéré ici aussi
+            }
+        } else if (multiplicateurVisuel >= 2.5) {
+            // Phase intermédiaire : Météorites majoritaires + Satellites au compte-gouttes
+            sousType = (Math.random() < 0.22) ? "satellite" : "meteorite";
+        } else {
+            // Phase initiale des obstacles (1.8x à 2.5x)
+            sousType = "meteorite";
         }
-
-        // Choix aléatoire parmi les obstacles débloqués
-        sousType = poolObstacles[Math.floor(Math.random() * poolObstacles.length)];
 
         if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
-            speedFactor = 0.20; 
+            speedFactor = 0.20; // Obstacle lent d'origine
             vx = (Math.random() - 0.5) * 0.2; 
         } else if (sousType === "missile") {
-            speedFactor = 1.1; 
+            speedFactor = 1.4; // Boosté pour descendre TRÈS vite (ne tombe plus du tout au rythme du satellite !)
             const scaleMissile = 0.15;
             itemWidth = 170 * scaleMissile;
             itemHeight = 486 * scaleMissile;
@@ -312,8 +317,8 @@ function spawnItem() {
             let centreRocketX = rocket.x + rocket.width / 2;
             let centreItemX = xInitialProvisoire + itemWidth / 2;
             
-            vx = (centreRocketX - centreItemX) * 0.022;
-            vx = Math.max(-3.5, Math.min(3.5, vx)); 
+            vx = (centreRocketX - centreItemX) * 0.025;
+            vx = Math.max(-3.8, Math.min(3.8, vx)); 
         } else {
             sousType = "meteorite";
             const possibleScales = [0.11, 0.14, 0.17, 0.20];
@@ -324,7 +329,6 @@ function spawnItem() {
             vx = (Math.random() - 0.5) * 2.2; 
         }
     } else {
-        // Paramètres du booster
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -344,8 +348,9 @@ function spawnItem() {
         traqueur: estTraqueur
     });
 
-    // Fréquence d'apparition accélérée à haute vitesse
-    let prochainSpawn = Math.max(380, 1400 - (gameSpeed * 65));
+    // Fréquence de spawn ajustée : un peu plus d'espace au tout début, puis s'accélère
+    let delaiDeBase = (multiplicateurVisuel < 1.8) ? 1600 : 1400;
+    let prochainSpawn = Math.max(380, delaiDeBase - (gameSpeed * 65));
     setTimeout(spawnItem, prochainSpawn);
 }
 
@@ -355,8 +360,6 @@ function update() {
     if (fondPret && imgFond.naturalHeight > 0) {
         let ratioAjustement = canvas.width / imgFond.naturalWidth;
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
-        
-        // Hauteur de raccord calée de manière étanche sur la hauteur du canvas (800px)
         let hauteurZoneBoucleSurEcran = canvas.height;
 
         let seuilEspaceAtteint = hauteurImageSurEcran - canvas.height;
@@ -376,7 +379,6 @@ function update() {
     }
 
     timeElapsed += 1;
-    // Courbe d'accélération fluide allant jusqu'à 4.0x (gameSpeed = 16)
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0012) * 5.5; 
     if (gameSpeed > 16) gameSpeed = 16; 
 
@@ -419,7 +421,7 @@ function update() {
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
                 score += 15;
-                energie = Math.min(energieMax, energie + 20); // Bonus d'énergie ajusté pour le confort
+                energie = Math.min(energieMax, energie + 20); 
             } else {
                 declencherGameOver();
                 return;
@@ -432,7 +434,6 @@ function update() {
 
         if (item.y > canvas.height) {
             items.splice(i, 1);
-            // On gagne des points bonus pour avoir survécu à un obstacle passé
             score += (item.type === "obstacle") ? 2 : 1;
             document.getElementById("scoreText").innerText = score;
         }
@@ -454,7 +455,6 @@ function draw() {
             let y1 = loopSpaceY;
             let y2 = loopSpaceY - hauteurZoneBoucleSurEcran;
 
-            // Découpe et affichage exclusif du ciel étoilé supérieur sans bavure
             let hauteurSourceEspace = imgFond.naturalWidth * (canvas.height / canvas.width);
 
             ctx.drawImage(
