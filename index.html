@@ -170,7 +170,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- CONFIGURATION DES CHEMINS D'IMAGES (CORRIGÉ !) ---
+// --- CONFIGURATION DES CHEMINS D'IMAGES ---
 const PATH_FOND = 'fond_decollage.png'; 
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
@@ -223,7 +223,7 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Gestion du défilement
+// Gestion du défilement ralenti
 let cameraY = 0; 
 let phaseEspaceInfinie = false;
 let loopY = 0; 
@@ -342,24 +342,28 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- MISE À JOUR DYNAMIQUE ET LOOP DU FOND ---
+    // --- LOGIQUE DE DÉFILEMENT ET BOUCLE ---
     if (fondPret && imgFond.naturalHeight > 0) {
-        let ratioAjustement = canvas.width / imgFond.naturalWidth;
-        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
+        let ratioAjustement = canvas.width / imgFond.naturalWidth; // 450 / 412
+        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement; // ~2236px
         
-        // Le point exact où la transition vers l'espace se fige à l'écran
-        let limiteTransitionUnitaire = hauteurImageSurEcran - canvas.height; 
+        // Vitesse du fond ralentie (0.2 au lieu de 0.4)
+        let vitesseFond = gameSpeed * 0.2; 
+
+        // Le point de transition se situe au pixel 733 (2048 - 1315) sur l'image source
+        // Traduit à l'échelle de l'écran :
+        let limiteTransitionUnitaire = (imgFond.naturalHeight - 733) * ratioAjustement - canvas.height;
 
         if (!phaseEspaceInfinie) {
-            cameraY += gameSpeed * 0.4;
+            cameraY += vitesseFond;
             if (cameraY >= limiteTransitionUnitaire) {
                 phaseEspaceInfinie = true;
-                loopY = 0; // On démarre le compteur de la boucle spatiale
+                loopY = 0; 
             }
         } else {
-            // Mode Espace infini : On boucle uniquement sur les 1315 premiers pixels (le haut)
-            loopY += gameSpeed * 0.4;
-            let hauteurZoneBoucleSurEcran = 1315 * ratioAjustement;
+            // Boucle infinie sur la zone de l'espace (pixels 0 à 733 du haut)
+            loopY += vitesseFond;
+            let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
             if (loopY >= hauteurZoneBoucleSurEcran) {
                 loopY = 0;
             }
@@ -436,20 +440,20 @@ function draw() {
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
 
         if (!phaseEspaceInfinie) {
-            // Décollage linéaire de la Terre vers les Nuages
+            // Phase initiale : Décollage depuis la Terre
             let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
             ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
         } else {
-            // Mode Espace infini : Dessin en double bande (Seamless) sur la zone du haut (0 à 1315px)
-            let hauteurZoneBoucleSurEcran = 1315 * ratioAjustement;
+            // Phase Espace infini : On boucle parfaitement sur la zone 0 à 733px de l'image source
+            let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
             
-            // Premier calque qui descend
-            let y1 = loopY;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y1, canvas.width, hauteurZoneBoucleSurEcran);
+            // Premier calque (descend vers le bas)
+            let y1 = - (hauteurZoneBoucleSurEcran - canvas.height) + loopY;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 733, 0, y1, canvas.width, hauteurZoneBoucleSurEcran);
             
-            // Second calque de raccord au-dessus
-            let y2 = loopY - hauteurZoneBoucleSurEcran;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y2, canvas.width, hauteurZoneBoucleSurEcran);
+            // Deuxième calque (raccord transparent au-dessus)
+            let y2 = y1 - hauteurZoneBoucleSurEcran;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 733, 0, y2, canvas.width, hauteurZoneBoucleSurEcran);
         }
     } else {
         ctx.fillStyle = "#0b0f19";
