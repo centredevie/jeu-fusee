@@ -219,8 +219,8 @@ imgFusee.onload = () => {
 
 // Variables globales de jeu
 let score = 0;
-let gameSpeed = 4; // Vitesse de départ (équivaut à 1.0x)
-let timeElapsed = 0; // Compteur de frames pour la courbe de progression
+let gameSpeed = 4; 
+let timeElapsed = 0; 
 let gameOver = false;
 let fondY = 0;
 
@@ -260,41 +260,53 @@ function spawnItem() {
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        // SATELLITE (Disponible dès Vitesse >= 2.0x soit gameSpeed >= 8)
-        if(gameSpeed >= 8 && Math.random() < 0.10) { 
-            sousType = "satellite";
+        
+        // --- LOGIQUE DE SEPARATION DES PHASES (SATELLITE VS MISSILE) ---
+        let choixObstacleHauteVitesse = Math.random(); // Servira à choisir la phase à partir de x3.0
+
+        // Cas 1 : On est à vitesse x2.0+ mais pas encore x3.0 (gameSpeed entre 8 et 12)
+        if (gameSpeed >= 8 && gameSpeed < 12) {
+            if (Math.random() < 0.10) {
+                sousType = "satellite";
+            }
+        } 
+        // Cas 2 : On a atteint ou dépassé la vitesse x3.0 (gameSpeed >= 12). C'est SOIT l'un SOIT l'autre !
+        else if (gameSpeed >= 12) {
+            if (choixObstacleHauteVitesse < 0.12) {
+                sousType = "satellite"; // Phase Satellite (Pas de missile)
+            } else if (choixObstacleHauteVitesse >= 0.12 && choixObstacleHauteVitesse < 0.42) {
+                sousType = "missile";    // Phase Missile (Pas de satellite)
+                estTraqueur = true;
+            }
+        }
+
+        // Configuration des dimensions et comportement selon le type validé au-dessus
+        if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
             speedFactor = 0.20; 
             vx = (Math.random() - 0.5) * 0.2; 
+        } else if (sousType === "missile") {
+            speedFactor = 1.1; 
+            const scaleMissile = 0.15;
+            itemWidth = 170 * scaleMissile;
+            itemHeight = 486 * scaleMissile;
+            
+            let centreRocketX = rocket.x + rocket.width / 2;
+            let centreItemX = xInitialProvisoire + itemWidth / 2;
+            
+            vx = (centreRocketX - centreItemX) * 0.022;
+            vx = Math.max(-3.5, Math.min(3.5, vx)); 
         } else {
-            // MISSILE TRAQUEUR (Disponible dès Vitesse >= 3.0x soit gameSpeed >= 12)
-            if (gameSpeed >= 12 && Math.random() < 0.30) {
-                sousType = "missile";
-                estTraqueur = true;
-                speedFactor = 1.1; 
-                
-                const scaleMissile = 0.15;
-                itemWidth = 170 * scaleMissile;
-                itemHeight = 486 * scaleMissile;
-                
-                let centreRocketX = rocket.x + rocket.width / 2;
-                let centreItemX = xInitialProvisoire + itemWidth / 2;
-                
-                // Vitesse latérale légèrement lissée sur la vitesse globale
-                vx = (centreRocketX - centreItemX) * 0.022;
-                vx = Math.max(-3.5, Math.min(3.5, vx)); 
-            } else {
-                // MÉTÉORITE STANDARD
-                sousType = "meteorite";
-                const possibleScales = [0.11, 0.14, 0.17, 0.20];
-                const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
-                itemWidth = 435 * scale;
-                itemHeight = 410 * scale;
-                speedFactor = (scale <= 0.14) ? 1.3 : 0.9;
-                vx = (Math.random() - 0.5) * 2.2; 
-            }
+            // MÉTÉORITE STANDARD
+            sousType = "meteorite";
+            const possibleScales = [0.11, 0.14, 0.17, 0.20];
+            const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
+            itemWidth = 435 * scale;
+            itemHeight = 410 * scale;
+            speedFactor = (scale <= 0.14) ? 1.3 : 0.9;
+            vx = (Math.random() - 0.5) * 2.2; 
         }
     } else {
         // BOOSTER D'ÉNERGIE
@@ -317,7 +329,6 @@ function spawnItem() {
         traqueur: estTraqueur
     });
 
-    // Fréquence de spawn stabilisée selon la vitesse
     let prochainSpawn = Math.max(450, 1400 - (gameSpeed * 60));
     setTimeout(spawnItem, prochainSpawn);
 }
@@ -337,9 +348,7 @@ function update() {
         }
     }
 
-    // --- NOUVELLE LOGIQUE DE VITESSE PROGRESSIVE (LOGARITHMIQUE) ---
     timeElapsed += 1;
-    // Formule qui ralentit l'accélération avec le temps, avec un plafond strict à gameSpeed = 12.8 (soit 3.2x)
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0015) * 4.2; 
     if (gameSpeed > 12.8) gameSpeed = 12.8; 
 
