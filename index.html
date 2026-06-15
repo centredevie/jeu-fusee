@@ -223,10 +223,8 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Progression globale du défilement (en pixels sur l'écran)
-let fondYGlobal = 0; 
-let phaseEspaceInfinie = false;
-let fondYLoop = 0; // Utilisé une fois dans l'espace
+// Variable de défilement linéaire simple (identique au premier système de fond)
+let fondY = 0; 
 
 // Énergie
 let energie = 100;
@@ -342,38 +340,23 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
+    // --- SYSTEME DE DEFILEMENT SECURISE ---
+    if (fondPret && imgFond.naturalHeight > 0) {
+        let echelleFond = canvas.width / imgFond.naturalWidth;
+        let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
+        let limiteTransition = hauteurTotaleAffichee - canvas.height;
+
+        // On descend doucement l'image d'après la vitesse
+        if (fondY < limiteTransition) {
+            fondY += gameSpeed * 0.4;
+        } else {
+            fondY = limiteTransition; // Reste bloqué sur le haut (l'espace uni) à la fin
+        }
+    }
+
     timeElapsed += 1;
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0015) * 4.2; 
     if (gameSpeed > 12.8) gameSpeed = 12.8; 
-
-    // --- MISE À JOUR TECHNIQUE DU DÉFILEMENT ---
-    if (fondPret && imgFond.naturalHeight > 0) {
-        let vitesseDefilement = gameSpeed * 0.4; 
-        
-        if (!phaseEspaceInfinie) {
-            fondYGlobal += vitesseDefilement;
-            
-            // Calcul de la hauteur étirée sur l'écran
-            let ratioEchelle = canvas.width / imgFond.naturalWidth; // 450 / 412
-            let hauteurTotaleAffichee = imgFond.naturalHeight * ratioEchelle; // ~2236px
-
-            // Si le haut de l'image (l'espace, y=0) atteint le haut du canvas, on active la boucle sur la zone 0-1315px
-            if (fondYGlobal >= hauteurTotaleAffichee - canvas.height) {
-                phaseEspaceInfinie = true;
-                // On initialise la boucle au niveau correspondant sur l'image source
-                fondYLoop = 0; 
-            }
-        } else {
-            // Mode espace infini : On fait défiler la zone de 1315px
-            fondYLoop += vitesseDefilement;
-            let ratioEchelle = canvas.width / imgFond.naturalWidth;
-            let hauteurZoneBoucleAffichee = 1315 * ratioEchelle; // Hauteur de l'espace sur l'écran
-            
-            if (fondYLoop >= hauteurZoneBoucleAffichee) {
-                fondYLoop = 0;
-            }
-        }
-    }
 
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
 
@@ -436,26 +419,18 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // --- RENDU CLASSIQUE ULTRA-ROBUSTE ---
     if (fondPret && imgFond.naturalHeight > 0) {
-        let ratioEchelle = canvas.width / imgFond.naturalWidth; 
-
-        if (!phaseEspaceInfinie) {
-            // --- 1. DECOLLAGE INITIAL PUIS MONTEE EN LIGNE DROITE ---
-            // On calcule la position Y sur l'écran (on commence tout en bas de l'image)
-            let yEcran = - (imgFond.naturalHeight * ratioEchelle - canvas.height) + fondYGlobal;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalHeight, 0, yEcran, canvas.width, imgFond.naturalHeight * ratioEchelle);
-        } else {
-            // --- 2. BOUCLE INFINIE DANS L'ESPACE (0 à 1315px) ---
-            let hauteurEspaceAffichee = 1315 * ratioEchelle; 
-
-            // Premier morceau (qui glisse vers le bas)
-            let y1 = fondYLoop;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y1, canvas.width, hauteurEspaceAffichee);
-
-            // Deuxième morceau (qui réapparaît par le haut)
-            let y2 = fondYLoop - hauteurEspaceAffichee;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y2, canvas.width, hauteurEspaceAffichee);
-        }
+        let echelleFond = canvas.width / imgFond.naturalWidth;
+        let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (fondY / echelleFond);
+        
+        ctx.drawImage(
+            imgFond, 
+            0, Math.max(0, sourceY), 
+            imgFond.naturalWidth, canvas.height / echelleFond, 
+            0, 0, 
+            canvas.width, canvas.height
+        );
     } else {
         ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
