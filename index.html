@@ -171,7 +171,7 @@ canvas.width = 450;
 canvas.height = 800;
 
 // --- CONFIGURATION DES CHEMINS D'IMAGES ---
-const PATH_FOND = 'fond_decollage.png'; 
+const PATH_FOND = 'Agrandir image ciel  fond espace.png'; // Nom mis à jour d'après ton fichier
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
 const PATH_BOOSTER = 'booster.png';
@@ -222,7 +222,9 @@ let score = 0;
 let gameSpeed = 4; 
 let timeElapsed = 0; 
 let gameOver = false;
-let fondY = 0;
+
+// Positionnement du fond (en pixels réels sur la texture originale de 2048px de haut)
+let fondYPixels = 0; 
 
 // Énergie
 let energie = 100;
@@ -251,13 +253,11 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
-    // --- ENTRAINEMENT/EQUILIBRAGE DYNAMIQUE DES BOOSTERS ---
-    // Plus le jeu va vite (gameSpeed de 4 à 12.8), plus on augmente la chance d'avoir un booster (de 30% à 40%)
     let chanceBooster = 0.30;
     if (gameSpeed >= 8 && gameSpeed < 12) {
-        chanceBooster = 0.35; // Vitesse moyenne : 35% de boosters
+        chanceBooster = 0.35; 
     } else if (gameSpeed >= 12) {
-        chanceBooster = 0.40; // Vitesse maximale/Missiles : 40% de boosters
+        chanceBooster = 0.40; 
     }
 
     let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
@@ -270,6 +270,7 @@ function spawnItem() {
 
     if (typeChoisi === "obstacle") {
         let choixObstacleHauteVitesse = Math.random(); 
+        let satelliteEncorePresent = items.some(item => item.sousType === "satellite");
 
         if (gameSpeed >= 8 && gameSpeed < 12) {
             if (Math.random() < 0.10) {
@@ -279,7 +280,8 @@ function spawnItem() {
         else if (gameSpeed >= 12) {
             if (choixObstacleHauteVitesse < 0.12) {
                 sousType = "satellite"; 
-            } else if (choixObstacleHauteVitesse >= 0.12 && choixObstacleHauteVitesse < 0.42) {
+            } 
+            else if (choixObstacleHauteVitesse >= 0.12 && choixObstacleHauteVitesse < 0.42 && !satelliteEncorePresent) {
                 sousType = "missile";    
                 estTraqueur = true;
             }
@@ -312,7 +314,6 @@ function spawnItem() {
             vx = (Math.random() - 0.5) * 2.2; 
         }
     } else {
-        // BOOSTER D'ÉNERGIE
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -339,21 +340,23 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    if (fondPret && imgFond.naturalHeight > 0) {
-        let echelleFond = canvas.width / imgFond.naturalWidth;
-        let hauteurTotaleAffichee = imgFond.naturalHeight * echelleFond;
-        let limiteTransition = hauteurTotaleAffichee - canvas.height;
-
-        if (fondY < limiteTransition) {
-            fondY += gameSpeed * 0.4;
-        } else {
-            fondY = limiteTransition;
-        }
-    }
-
     timeElapsed += 1;
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0015) * 4.2; 
     if (gameSpeed > 12.8) gameSpeed = 12.8; 
+
+    // --- LOGIQUE AVANCÉE DE DÉFILEMENT DU FOND EN PIXELS ---
+    if (fondPret && imgFond.naturalHeight > 0) {
+        // Multiplicateur pour convertir la vitesse de jeu en vitesse de défilement sur l'image d'origine
+        let vitesseDefilementSource = gameSpeed * 0.5;
+        
+        fondYPixels += vitesseDefilementSource;
+
+        // Le haut de l'image (l'espace) correspond à y=0. Le point de coupure pour la boucle est à 1315px.
+        // Dès que la tête de lecture dépasse la zone de l'espace (1315px), on boucle à l'infini dans cette section.
+        if (fondYPixels > 1315) {
+            fondYPixels = 0 + (fondYPixels - 1315);
+        }
+    }
 
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
 
@@ -417,9 +420,29 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (fondPret && imgFond.naturalHeight > 0) {
-        let echelleFond = canvas.width / imgFond.naturalWidth;
-        let sourceY = imgFond.naturalHeight - (canvas.height / echelleFond) - (fondY / echelleFond);
-        ctx.drawImage(imgFond, 0, Math.max(0, sourceY), imgFond.naturalWidth, canvas.height / echelleFond, 0, 0, canvas.width, canvas.height);
+        // Facteur d'échelle pour adapter la largeur originale (412px) à la largeur du canvas (450px)
+        let echelleX = canvas.width / imgFond.naturalWidth;
+        let hauteurFenetreSource = canvas.height / echelleX;
+
+        // Position de départ du haut du cadre de rendu sur la texture d'origine (on démarre du bas de l'image au début)
+        let departSourceY = imgFond.naturalHeight - hauteurFenetreSource - fondYPixels;
+
+        if (departSourceY >= 0) {
+            // Décollage initial normal (Terre -> Nuages -> Espace)
+            ctx.drawImage(imgFond, 0, departSourceY, imgFond.naturalWidth, hauteurFenetreSource, 0, 0, canvas.width, canvas.height);
+        } else {
+            // BOUCLE INFINIE DANS L'ESPACE (Quand on dépasse la ligne des 1315px)
+            // On sépare le dessin en deux morceaux pour simuler la continuité :
+            
+            // Partie 1 : Le reste de la texture du haut de l'espace glissant vers le bas
+            let hauteurPartie1 = -departSourceY; 
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, hauteurPartie1, 0, hauteurPartie1 * echelleX, canvas.width, canvas.height - (hauteurPartie1 * echelleX));
+
+            // Partie 2 : Le bas de la zone spatiale (pixel 1315) qui revient par le haut de l'écran
+            let hauteurPartie2 = hauteurFenetreSource - hauteurPartie1;
+            let sourceYPartie2 = 1315 - hauteurPartie2;
+            ctx.drawImage(imgFond, 0, sourceYPartie2, imgFond.naturalWidth, hauteurPartie2, 0, 0, canvas.width, hauteurPartie1 * echelleX);
+        }
     } else {
         ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
