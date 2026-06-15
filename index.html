@@ -223,10 +223,8 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Gestion du défilement ralenti
+// Unique variable de position verticale pour un défilement unifié
 let cameraY = 0; 
-let phaseEspaceInfinie = false;
-let loopY = 0; 
 
 // Énergie
 let energie = 100;
@@ -342,31 +340,21 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- LOGIQUE DE DÉFILEMENT ET BOUCLE ---
+    // --- PROGRESSION LINÉAIRE ET CONSTANTE ---
     if (fondPret && imgFond.naturalHeight > 0) {
-        let ratioAjustement = canvas.width / imgFond.naturalWidth; // 450 / 412
-        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement; // ~2236px
-        
-        // Vitesse du fond ralentie (0.2 au lieu de 0.4)
-        let vitesseFond = gameSpeed * 0.2; 
+        let ratioAjustement = canvas.width / imgFond.naturalWidth;
+        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
+        let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
 
-        // Le point de transition se situe au pixel 733 (2048 - 1315) sur l'image source
-        // Traduit à l'échelle de l'écran :
-        let limiteTransitionUnitaire = (imgFond.naturalHeight - 733) * ratioAjustement - canvas.height;
+        // Vitesse du fond modérée et fluide
+        cameraY += gameSpeed * 0.25;
 
-        if (!phaseEspaceInfinie) {
-            cameraY += vitesseFond;
-            if (cameraY >= limiteTransitionUnitaire) {
-                phaseEspaceInfinie = true;
-                loopY = 0; 
-            }
-        } else {
-            // Boucle infinie sur la zone de l'espace (pixels 0 à 733 du haut)
-            loopY += vitesseFond;
-            let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
-            if (loopY >= hauteurZoneBoucleSurEcran) {
-                loopY = 0;
-            }
+        // Point exact où le sommet absolu de l'image (y=0) touche le haut du canvas
+        let limiteHauteAtteinte = hauteurImageSurEcran - canvas.height;
+
+        // Une fois le haut atteint, on boucle de manière transparente uniquement sur la hauteur de l'espace (733px convertis)
+        if (cameraY >= limiteHauteAtteinte) {
+            cameraY = limiteHauteAtteinte - hauteurZoneBoucleSurEcran + ((cameraY - limiteHauteAtteinte) % hauteurZoneBoucleSurEcran);
         }
     }
 
@@ -438,22 +426,25 @@ function draw() {
     if (fondPret && imgFond.naturalHeight > 0) {
         let ratioAjustement = canvas.width / imgFond.naturalWidth;
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
+        let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
 
-        if (!phaseEspaceInfinie) {
-            // Phase initiale : Décollage depuis la Terre
-            let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
-            ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
-        } else {
-            // Phase Espace infini : On boucle parfaitement sur la zone 0 à 733px de l'image source
-            let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
-            
-            // Premier calque (descend vers le bas)
-            let y1 = - (hauteurZoneBoucleSurEcran - canvas.height) + loopY;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 733, 0, y1, canvas.width, hauteurZoneBoucleSurEcran);
-            
-            // Deuxième calque (raccord transparent au-dessus)
-            let y2 = y1 - hauteurZoneBoucleSurEcran;
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 733, 0, y2, canvas.width, hauteurZoneBoucleSurEcran);
+        // Calcul du positionnement de base (on part du bas)
+        let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
+
+        // Premier dessin : l'image principale en mouvement
+        ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
+
+        // Deuxième dessin de sécurité (Seamless) : Raccord de la zone espace (0 à 733px) au-dessus
+        // Il s'active naturellement de manière continue sans saut visuel
+        let yRaccord = renduY - hauteurZoneBoucleSurEcran;
+        
+        // On dessine le raccord seulement si le haut de l'image commence à entrer dans le canvas
+        if (renduY > -hauteurZoneBoucleSurEcran) {
+            ctx.drawImage(
+                imgFond, 
+                0, 0, imgFond.naturalWidth, 733, // Portion source (l'espace)
+                0, yRaccord, canvas.width, hauteurZoneBoucleSurEcran // Destination écran
+            );
         }
     } else {
         ctx.fillStyle = "#0b0f19";
