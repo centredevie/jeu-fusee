@@ -251,7 +251,16 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
-    let typeChoisi = (Math.random() < 0.70) ? "obstacle" : "booster";
+    // --- ENTRAINEMENT/EQUILIBRAGE DYNAMIQUE DES BOOSTERS ---
+    // Plus le jeu va vite (gameSpeed de 4 à 12.8), plus on augmente la chance d'avoir un booster (de 30% à 40%)
+    let chanceBooster = 0.30;
+    if (gameSpeed >= 8 && gameSpeed < 12) {
+        chanceBooster = 0.35; // Vitesse moyenne : 35% de boosters
+    } else if (gameSpeed >= 12) {
+        chanceBooster = 0.40; // Vitesse maximale/Missiles : 40% de boosters
+    }
+
+    let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
     let itemWidth, itemHeight, speedFactor;
     let vx = 0;
     let sousType = "meteorite";
@@ -260,27 +269,22 @@ function spawnItem() {
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        
-        // --- LOGIQUE DE SEPARATION DES PHASES (SATELLITE VS MISSILE) ---
-        let choixObstacleHauteVitesse = Math.random(); // Servira à choisir la phase à partir de x3.0
+        let choixObstacleHauteVitesse = Math.random(); 
 
-        // Cas 1 : On est à vitesse x2.0+ mais pas encore x3.0 (gameSpeed entre 8 et 12)
         if (gameSpeed >= 8 && gameSpeed < 12) {
             if (Math.random() < 0.10) {
                 sousType = "satellite";
             }
         } 
-        // Cas 2 : On a atteint ou dépassé la vitesse x3.0 (gameSpeed >= 12). C'est SOIT l'un SOIT l'autre !
         else if (gameSpeed >= 12) {
             if (choixObstacleHauteVitesse < 0.12) {
-                sousType = "satellite"; // Phase Satellite (Pas de missile)
+                sousType = "satellite"; 
             } else if (choixObstacleHauteVitesse >= 0.12 && choixObstacleHauteVitesse < 0.42) {
-                sousType = "missile";    // Phase Missile (Pas de satellite)
+                sousType = "missile";    
                 estTraqueur = true;
             }
         }
 
-        // Configuration des dimensions et comportement selon le type validé au-dessus
         if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
@@ -299,7 +303,6 @@ function spawnItem() {
             vx = (centreRocketX - centreItemX) * 0.022;
             vx = Math.max(-3.5, Math.min(3.5, vx)); 
         } else {
-            // MÉTÉORITE STANDARD
             sousType = "meteorite";
             const possibleScales = [0.11, 0.14, 0.17, 0.20];
             const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
