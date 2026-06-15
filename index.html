@@ -228,10 +228,10 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// Énergie (Départ à 12% + Drain augmenté = début très difficile)
-let energie = 12;
+// Énergie calibrée pour un démarrage difficile mais équitable
+let energie = 15; 
 const energieMax = 100;
-const drainParSeconde = 6.0; 
+const drainParSeconde = 5.5; 
 
 let items = [];
 let topScoresLocaux = [];
@@ -282,8 +282,6 @@ function spawnItem() {
 
     if (typeChoisi === "obstacle") {
         if (multVisuel >= 1.5 && multVisuel < 2.5) {
-            // --- RÉDUCTION DU NOMBRE DE SATELLITES ---
-            // 35% de chances de sauter ce tour pour aérer le passage
             if (Math.random() < 0.35) {
                 skipSpawn = true;
             } else {
@@ -291,7 +289,6 @@ function spawnItem() {
             }
         } 
         else if (multVisuel >= 2.5 && multVisuel < 3.2) {
-            // Moins de satellites, apparition des météorites
             sousType = (Math.random() < 0.20) ? "satellite" : "meteorite";
         } 
         else {
@@ -352,12 +349,11 @@ function spawnItem() {
         });
     }
 
-    // --- TIMING RECALIBRÉ POUR ÉVITER LES MURS ---
     let delaiDeBase = 1400;
     if (multVisuel < 1.5) {
-        delaiDeBase = 1550; // Plus espacé au début = moins le droit à l'erreur avec le gros drain
+        delaiDeBase = 1480; // Rythme serré mais tout à fait attrapable
     } else if (multVisuel >= 1.5 && multVisuel < 2.5) {
-        delaiDeBase = 1950; // Plus d'espace entre les vagues de satellites
+        delaiDeBase = 1950; 
     }
     
     let prochainSpawn = Math.max(480, delaiDeBase - (gameSpeed * 60));
