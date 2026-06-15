@@ -228,7 +228,7 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// Énergie calibrée pour un démarrage difficile mais équitable
+// Énergie (Équilibrée au démarrage)
 let energie = 15; 
 const energieMax = 100;
 const drainParSeconde = 5.5; 
@@ -304,10 +304,10 @@ function spawnItem() {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
             itemHeight = 415 * scaleSatellite;
-            speedFactor = 0.20; 
+            speedFactor = 0.30; // Augmenté légèrement (0.20 -> 0.30) pour dynamiser la phase 2
             vx = (Math.random() - 0.5) * 0.1; 
         } else if (sousType === "missile") {
-            speedFactor = 1.4; 
+            speedFactor = 1.35; // Reste très rapide pour le endgame
             const scaleMissile = 0.15;
             itemWidth = 170 * scaleMissile;
             itemHeight = 486 * scaleMissile;
@@ -324,8 +324,9 @@ function spawnItem() {
             const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
             itemWidth = 435 * scale;
             itemHeight = 410 * scale;
-            speedFactor = (scale <= 0.14) ? 1.3 : 0.9;
-            vx = (Math.random() - 0.5) * 2.2; 
+            // --- HARMONISATION ET ADAPTATION DES VITESSES ---
+            speedFactor = (scale <= 0.14) ? 0.85 : 0.65; // Réduit (anciennement 1.3 et 0.9) pour adoucir la transition
+            vx = (Math.random() - 0.5) * 1.8; // Balayage horizontal légèrement réduit
         }
     } else {
         const scale = 0.24; 
@@ -351,7 +352,7 @@ function spawnItem() {
 
     let delaiDeBase = 1400;
     if (multVisuel < 1.5) {
-        delaiDeBase = 1480; // Rythme serré mais tout à fait attrapable
+        delaiDeBase = 1480; 
     } else if (multVisuel >= 1.5 && multVisuel < 2.5) {
         delaiDeBase = 1950; 
     }
