@@ -170,8 +170,8 @@ const ctx = canvas.getContext("2d");
 canvas.width = 450;
 canvas.height = 800;
 
-// --- CONFIGURATION DES CHEMINS D'IMAGES ---
-const PATH_FOND = 'Agrandir image ciel  fond espace.png'; 
+// --- CONFIGURATION DES CHEMINS D'IMAGES (CORRIGÉ !) ---
+const PATH_FOND = 'fond_decollage.png'; 
 const PATH_FUSEE = 'fusee.png';
 const PATH_METEORITE = 'meteorite.png';
 const PATH_BOOSTER = 'booster.png';
@@ -190,13 +190,13 @@ let fuseePrete = false;
 let meteoritePrete = false;
 let boosterPret = false;
 let satellitePret = false;
-let missilePret = false;
+let missilePrete = false;
 
 imgFond.onload = () => { fondPret = true; };
 imgMeteorite.onload = () => { meteoritePrete = true; };
 imgBooster.onload = () => { boosterPret = true; };
 imgSatellite.onload = () => { satellitePret = true; };
-imgMissile.onload = () => { missilePret = true; };
+imgMissile.onload = () => { missilePrete = true; };
 
 // --- CONFIGURATION FORMAT FUSÉE ---
 const rocketBaseW = 60; 
@@ -223,8 +223,10 @@ let gameSpeed = 4;
 let timeElapsed = 0; 
 let gameOver = false;
 
-// Nouvelle variable de suivi de la caméra à l'écran
+// Gestion du défilement
 let cameraY = 0; 
+let phaseEspaceInfinie = false;
+let loopY = 0; 
 
 // Énergie
 let energie = 100;
@@ -340,20 +342,27 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // --- MISE À JOUR ULTRA SIMPLE DE LA POSITION DU FOND ---
+    // --- MISE À JOUR DYNAMIQUE ET LOOP DU FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
-        // Largeur finale à l'écran : canvas.width (450px)
-        // Hauteur proportionnelle à l'écran pour une image originale de 412x2048px :
-        let ratioAjustement = canvas.width / imgFond.naturalWidth; // 450 / 412 = ~1.092
-        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement; // 2048 * 1.092 = ~2236px
+        let ratioAjustement = canvas.width / imgFond.naturalWidth;
+        let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
         
-        // La limite max où s'arrêter pour afficher le tout premier pixel du haut de l'image (l'espace)
-        let limiteMaxDefilement = hauteurImageSurEcran - canvas.height; 
+        // Le point exact où la transition vers l'espace se fige à l'écran
+        let limiteTransitionUnitaire = hauteurImageSurEcran - canvas.height; 
 
-        if (cameraY < limiteMaxDefilement) {
-            cameraY += gameSpeed * 0.4; 
+        if (!phaseEspaceInfinie) {
+            cameraY += gameSpeed * 0.4;
+            if (cameraY >= limiteTransitionUnitaire) {
+                phaseEspaceInfinie = true;
+                loopY = 0; // On démarre le compteur de la boucle spatiale
+            }
         } else {
-            cameraY = limiteMaxDefilement; // Stop la progression linéaire, on est dans l'espace
+            // Mode Espace infini : On boucle uniquement sur les 1315 premiers pixels (le haut)
+            loopY += gameSpeed * 0.4;
+            let hauteurZoneBoucleSurEcran = 1315 * ratioAjustement;
+            if (loopY >= hauteurZoneBoucleSurEcran) {
+                loopY = 0;
+            }
         }
     }
 
@@ -422,20 +431,26 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- DESSIN DU FOND EN VERSION SÉCURISÉE (SANS DECOUPAGE SOURCE CORROMPU) ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let ratioAjustement = canvas.width / imgFond.naturalWidth;
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
 
-        // Position de rendu vertical à l'écran. 
-        // On commence tout en bas (coordonnée négative pour cacher le haut de l'image)
-        let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
-
-        ctx.drawImage(
-            imgFond, 
-            0, renduY, 
-            canvas.width, hauteurImageSurEcran
-        );
+        if (!phaseEspaceInfinie) {
+            // Décollage linéaire de la Terre vers les Nuages
+            let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
+            ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
+        } else {
+            // Mode Espace infini : Dessin en double bande (Seamless) sur la zone du haut (0 à 1315px)
+            let hauteurZoneBoucleSurEcran = 1315 * ratioAjustement;
+            
+            // Premier calque qui descend
+            let y1 = loopY;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y1, canvas.width, hauteurZoneBoucleSurEcran);
+            
+            // Second calque de raccord au-dessus
+            let y2 = loopY - hauteurZoneBoucleSurEcran;
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, 1315, 0, y2, canvas.width, hauteurZoneBoucleSurEcran);
+        }
     } else {
         ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -451,7 +466,7 @@ function draw() {
                     ctx.fillText("🛰️", item.x + item.width / 2, item.y);
                 }
             } else if (item.sousType === "missile") { 
-                if (missilePret) {
+                if (missilePrete) {
                     ctx.save();
                     let centreX = item.x + item.width / 2;
                     let centreY = item.y + item.height / 2;
