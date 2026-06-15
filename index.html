@@ -219,7 +219,7 @@ imgFusee.onload = () => {
 
 // Variables globales de jeu
 let score = 0;
-let gameSpeed = 4; 
+let gameSpeed = 4; // Vitesse interne de départ (4 = Vitesse 1.0x à l'écran)
 let timeElapsed = 0; 
 let gameOver = false;
 
@@ -228,8 +228,8 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// Énergie
-let energie = 100;
+// Énergie (Départ à 15% pour obliger le joueur à charger au décollage)
+let energie = 15;
 const energieMax = 100;
 const drainParSeconde = 5.2; 
 
@@ -255,14 +255,25 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
-    let chanceBooster = 0.30;
-    if (gameSpeed >= 8 && gameSpeed < 12) {
+    let multiplicateurVisuel = gameSpeed / 4;
+    
+    // Dynamique adaptative des boosters selon la vitesse
+    let chanceBooster = 1.0; // 100% booster au tout début
+    if (multiplicateurVisuel >= 1.8 && multiplicateurVisuel < 2.5) {
         chanceBooster = 0.35; 
-    } else if (gameSpeed >= 12) {
-        chanceBooster = 0.40; 
+    } else if (multiplicateurVisuel >= 2.5 && multiplicateurVisuel < 3.2) {
+        chanceBooster = 0.38;
+    } else if (multiplicateurVisuel >= 3.2) {
+        chanceBooster = 0.45; // Plus de boosters à très haute vitesse pour compenser la survie
     }
 
     let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
+    
+    // Forcer booster si en dessous de la vitesse 1.8x
+    if (multiplicateurVisuel < 1.8) {
+        typeChoisi = "booster";
+    }
+
     let itemWidth, itemHeight, speedFactor;
     let vx = 0;
     let sousType = "meteorite";
@@ -271,23 +282,19 @@ function spawnItem() {
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        let choixObstacleHauteVitesse = Math.random(); 
-        let satelliteEncorePresent = items.some(item => item.sousType === "satellite");
+        let poolObstacles = ["meteorite"];
 
-        if (gameSpeed >= 8 && gameSpeed < 12) {
-            if (Math.random() < 0.10) {
-                sousType = "satellite";
-            }
-        } 
-        else if (gameSpeed >= 12) {
-            if (choixObstacleHauteVitesse < 0.12) {
-                sousType = "satellite"; 
-            } 
-            else if (choixObstacleHauteVitesse >= 0.12 && choixObstacleHauteVitesse < 0.42 && !satelliteEncorePresent) {
-                sousType = "missile";    
-                estTraqueur = true;
-            }
+        // Ajouter les satellites à partir de 2.5x
+        if (multiplicateurVisuel >= 2.5) {
+            poolObstacles.push("satellite");
         }
+        // Ajouter les missiles à partir de 3.2x
+        if (multiplicateurVisuel >= 3.2) {
+            poolObstacles.push("missile");
+        }
+
+        // Choix aléatoire parmi les obstacles débloqués
+        sousType = poolObstacles[Math.floor(Math.random() * poolObstacles.length)];
 
         if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
@@ -300,6 +307,7 @@ function spawnItem() {
             const scaleMissile = 0.15;
             itemWidth = 170 * scaleMissile;
             itemHeight = 486 * scaleMissile;
+            estTraqueur = true;
             
             let centreRocketX = rocket.x + rocket.width / 2;
             let centreItemX = xInitialProvisoire + itemWidth / 2;
@@ -316,6 +324,7 @@ function spawnItem() {
             vx = (Math.random() - 0.5) * 2.2; 
         }
     } else {
+        // Paramètres du booster
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -335,30 +344,30 @@ function spawnItem() {
         traqueur: estTraqueur
     });
 
-    let prochainSpawn = Math.max(450, 1400 - (gameSpeed * 60));
+    // Fréquence d'apparition accélérée à haute vitesse
+    let prochainSpawn = Math.max(380, 1400 - (gameSpeed * 65));
     setTimeout(spawnItem, prochainSpawn);
 }
 
 function update() {
     if (gameOver) return;
 
-    // --- LOGIQUE SÉPARÉE POUR LE DÉFILEMENT DU FOND ---
     if (fondPret && imgFond.naturalHeight > 0) {
         let ratioAjustement = canvas.width / imgFond.naturalWidth;
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
-        let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
+        
+        // Hauteur de raccord calée de manière étanche sur la hauteur du canvas (800px)
+        let hauteurZoneBoucleSurEcran = canvas.height;
 
-        // Seuil d'activation de la boucle : quand le haut (y=0) touche le haut du canvas
         let seuilEspaceAtteint = hauteurImageSurEcran - canvas.height;
 
         if (!atteintEspaceEnHaut) {
             cameraY += gameSpeed * 0.25;
             if (cameraY >= seuilEspaceAtteint) {
                 atteintEspaceEnHaut = true;
-                loopSpaceY = 0; // On initialise le compteur de la boucle infinie
+                loopSpaceY = 0; 
             }
         } else {
-            // Une fois là-haut, on incrémente uniquement l'index de boucle sur la zone 0-733px
             loopSpaceY += gameSpeed * 0.25;
             if (loopSpaceY >= hauteurZoneBoucleSurEcran) {
                 loopSpaceY = loopSpaceY % hauteurZoneBoucleSurEcran;
@@ -367,8 +376,9 @@ function update() {
     }
 
     timeElapsed += 1;
-    gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0015) * 4.2; 
-    if (gameSpeed > 12.8) gameSpeed = 12.8; 
+    // Courbe d'accélération fluide allant jusqu'à 4.0x (gameSpeed = 16)
+    gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0012) * 5.5; 
+    if (gameSpeed > 16) gameSpeed = 16; 
 
     document.getElementById("speedText").innerText = (gameSpeed / 4).toFixed(1) + "x";
 
@@ -409,7 +419,7 @@ function update() {
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
                 score += 15;
-                energie = Math.min(energieMax, energie + 15); 
+                energie = Math.min(energieMax, energie + 20); // Bonus d'énergie ajusté pour le confort
             } else {
                 declencherGameOver();
                 return;
@@ -422,7 +432,8 @@ function update() {
 
         if (item.y > canvas.height) {
             items.splice(i, 1);
-            score += 1;
+            // On gagne des points bonus pour avoir survécu à un obstacle passé
+            score += (item.type === "obstacle") ? 2 : 1;
             document.getElementById("scoreText").innerText = score;
         }
     }
@@ -434,31 +445,28 @@ function draw() {
     if (fondPret && imgFond.naturalHeight > 0) {
         let ratioAjustement = canvas.width / imgFond.naturalWidth;
         let hauteurImageSurEcran = imgFond.naturalHeight * ratioAjustement;
-        let hauteurZoneBoucleSurEcran = 733 * ratioAjustement;
+        let hauteurZoneBoucleSurEcran = canvas.height;
 
         if (!atteintEspaceEnHaut) {
-            // --- PHASE 1 : MONTEE GLOBALE ---
-            // On dessine simplement l'image entière qui défile depuis le bas
             let renduY = - (hauteurImageSurEcran - canvas.height) + cameraY;
             ctx.drawImage(imgFond, 0, renduY, canvas.width, hauteurImageSurEcran);
         } else {
-            // --- PHASE 2 : BOUCLE SUR L'ESPACE UNIQUEMENT (0 à 733px) ---
-            // On extrait de manière étanche uniquement les 733 premiers pixels du haut de l'image
             let y1 = loopSpaceY;
             let y2 = loopSpaceY - hauteurZoneBoucleSurEcran;
 
-            // Premier panneau espace qui descend
+            // Découpe et affichage exclusif du ciel étoilé supérieur sans bavure
+            let hauteurSourceEspace = imgFond.naturalWidth * (canvas.height / canvas.width);
+
             ctx.drawImage(
                 imgFond, 
-                0, 0, imgFond.naturalWidth, 733, // Source stricte
-                0, y1, canvas.width, hauteurZoneBoucleSurEcran // Destination
+                0, 0, imgFond.naturalWidth, hauteurSourceEspace, 
+                0, y1, canvas.width, hauteurZoneBoucleSurEcran
             );
 
-            // Deuxième panneau espace raccordé juste au-dessus
             ctx.drawImage(
                 imgFond, 
-                0, 0, imgFond.naturalWidth, 733, // Source stricte
-                0, y2, canvas.width, hauteurZoneBoucleSurEcran // Destination
+                0, 0, imgFond.naturalWidth, hauteurSourceEspace, 
+                0, y2, canvas.width, hauteurZoneBoucleSurEcran
             );
         }
     } else {
