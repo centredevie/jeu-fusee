@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orbite Critique - Mode Surcharge</title>
+    <title>Orbite Critique - Surcharge Visuelle</title>
     <style>
         * {
             box-sizing: border-box;
@@ -56,7 +56,7 @@
         #score-box { top: 15px; left: 15px; }
         #speed-box { top: 55px; left: 15px; }
         
-        /* Message d'alerte Surcharge / Boss */
+        /* Message d'alerte */
         #alert-box {
             position: absolute;
             top: 110px;
@@ -65,18 +65,18 @@
             text-align: center;
             font-weight: bold;
             font-size: 14px;
-            padding: 6px;
+            padding: 8px;
             border-radius: 4px;
             display: none;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            animation: clignote 0.5s infinite alternate;
+            letter-spacing: 1.5px;
+            animation: clignote 0.4s infinite alternate;
         }
-        .alert-surchargé { background: rgba(59, 130, 246, 0.9); border: 1px solid #60a5fa; color: white; }
-        .alert-boss { background: rgba(239, 68, 68, 0.9); border: 1px solid #f87171; color: white; }
+        .alert-surchargé { background: rgba(59, 130, 246, 0.95); border: 2px solid #60a5fa; color: white; box-shadow: 0 0 15px #3b82f6; }
+        .alert-boss { background: rgba(239, 68, 68, 0.95); border: 2px solid #f87171; color: white; box-shadow: 0 0 15px #ef4444; }
 
         @keyframes clignote {
-            from { opacity: 0.6; } to { opacity: 1; }
+            from { opacity: 0.5; } to { opacity: 1; }
         }
 
         #jauge-container {
@@ -98,7 +98,6 @@
             background: linear-gradient(to top, #f59e0b, #ef4444);
             transition: height 0.1s linear, background 0.2s;
         }
-        /* Style quand la jauge est en Surcharge */
         #jauge-fill.surcharge {
             background: linear-gradient(to top, #3b82f6, #60a5fa, #ffffff) !important;
             animation: pulse-blue 0.2s infinite;
@@ -273,7 +272,6 @@ function scheduleNextSpawn() {
     let delaiMax = 1300;
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
 
-    // Si on est en surcharge, tout va un peu plus vite pour maximiser l'action
     if (surchargeActive) tempsAttente *= 0.75;
 
     setTimeout(() => {
@@ -316,18 +314,15 @@ function triggerSpawn(typeChoisi, alpha) {
     let vx = 0;
     let xInitial = Math.random() * (canvas.width - 80);
 
-    // Vérifier s'il y a déjà un boss fusée à l'écran
     let fuséePresente = items.some(item => item.sousType === "missile");
 
     if (typeChoisi === "obstacle") {
         let r = Math.random();
         
         let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.5)); 
-        // MODIFICATION : Les météorites prennent beaucoup plus de poids au milieu pour l'accélération
         let poidsMeteorite = 1.0 - poidsSatellite;
         let poidsMissile = 0;
 
-        // Le boss apparaît à partir de 3.5x, mais UN SEUL à la fois max
         if (vActuelle >= 3.5 && !fuséePresente) {
             poidsMissile = 0.25; 
             poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile);
@@ -346,14 +341,11 @@ function triggerSpawn(typeChoisi, alpha) {
             sousType = "meteorite";
             const scale = 0.12 + (Math.random() * 0.08);
             itemWidth = 435 * scale; itemHeight = 410 * scale;
-            
-            // ACCÉLÉRATION AVANT LE BOSS : Courbe d'accélération agressive des pierres dès le milieu (alpha * 0.45)
             speedFactor = 0.60 + (alpha * 0.45);
             vx = (Math.random() - 0.5) * (1.5 + alpha * 2.5); 
         } else {
-            // MODE BOSS FUSÉE UNIQUE
             sousType = "missile"; 
-            const scale = 0.20; // Plus gros pour faire effet "Boss"
+            const scale = 0.20; 
             itemWidth = 170 * scale; itemHeight = 486 * scale;
             
             speedFactor = 0.08 + (alpha * 0.08); 
@@ -386,14 +378,13 @@ function update() {
     let alertBox = document.getElementById("alert-box");
     let jaugeFill = document.getElementById("jauge-fill");
 
-    // Gestion du timer de la Surcharge
     if (surchargeActive) {
         surchargeTimer--;
         if (surchargeTimer <= 0) {
             surchargeActive = false;
             jaugeFill.classList.remove("surcharge");
             alertBox.style.display = "none";
-            energie = 50; // Retombe à la moitié après l'explosion d'énergie
+            energie = 50; 
         }
     }
 
@@ -402,7 +393,6 @@ function update() {
         let hEcran = imgFond.naturalHeight * ratio;
         let seuil = hEcran - canvas.height;
 
-        // Le fond défile deux fois plus vite en surcharge (effet de vitesse)
         let multiplicateurVisuel = surchargeActive ? 2.0 : 1.0;
         if (!atteintEspaceEnHaut) {
             cameraY += gameSpeed * 0.25 * multiplicateurVisuel;
@@ -419,7 +409,6 @@ function update() {
     let alpha = getProgressionFactor();
     document.getElementById("speedText").innerText = (gameSpeed / 4.0).toFixed(1) + "x";
 
-    // Drain d'énergie arrêté en mode Surcharge
     if (!surchargeActive) {
         let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
         if (alpha < 0.15) drainActuel *= 0.5; 
@@ -430,7 +419,7 @@ function update() {
         jaugeFill.style.height = "100%";
     }
 
-    // Gestion de l'affichage des alertes UI
+    // MODIFICATION : Ajustement des textes d'alertes ("ALERTE FUSEE")
     let vActuelle = gameSpeed / 4.0;
     let fuséePresente = items.some(item => item.sousType === "missile");
     if (surchargeActive) {
@@ -438,14 +427,13 @@ function update() {
         alertBox.className = "alert-surchargé";
         alertBox.style.display = "block";
     } else if (vActuelle >= 3.5 && fuséePresente) {
-        alertBox.innerText = "⚠️ ATTENTION : TRAJECTOIRE BOSS FUSÉE ⚠️";
+        alertBox.innerText = "🚨 ALERTE FUSEE 🚨"; // Modifié selon ta demande
         alertBox.className = "alert-boss";
         alertBox.style.display = "block";
     } else {
         alertBox.style.display = "none";
     }
 
-    // Déplacement de notre fusée (Plus réactive en mode surcharge)
     let vitesseReponse = surchargeActive ? 0.40 : 0.22;
     rocket.x += (rocket.targetX - rocket.x) * vitesseReponse;
 
@@ -458,7 +446,6 @@ function update() {
                 let centreRocket = rocket.x + rocket.width / 2;
                 let centreItem = item.x + item.width / 2;
                 
-                // Le boss ajuste sa mire chirurgicalement selon alpha
                 let intensiteTracking = 0.02 + (alpha * 0.03);
                 item.vx = (centreRocket - centreItem) * intensiteTracking;
                 item.vx = Math.max(-4.5, Math.min(4.5, item.vx));
@@ -490,21 +477,18 @@ function update() {
         const iw = item.width * scaleI;
         const ih = item.height * scaleI;
 
-        // Détection des collisions
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
                 if (energie >= 100 && !surchargeActive) {
-                    // EFFET SPÉCIAL : Déclenchement de la surcharge !
                     surchargeActive = true;
-                    surchargeTimer = 210; // 3.5 secondes à 60 FPS
+                    surchargeTimer = 210; 
                     jaugeFill.classList.add("surcharge");
-                    score += 50; // Bonus massif de suralimentation
+                    score += 50; 
                 } else if (!surchargeActive) {
                     let apportEnergie = 24 * (1.0 + alpha * 0.6);
                     energie = Math.min(energieMax, energie + apportEnergie); 
                     score += 15;
                 } else {
-                    // En mode surcharge, ramasser un boost donne juste des points purs
                     score += 30;
                 }
                 
@@ -512,7 +496,6 @@ function update() {
                 document.getElementById("scoreText").innerText = score;
                 continue;
             } else {
-                // Si on est surchargé, on brise les obstacles normaux sans mourir ! (Sauf le Boss qui annule la surcharge)
                 if (surchargeActive) {
                     items.splice(i, 1);
                     score += 10;
@@ -576,19 +559,42 @@ function draw() {
         }
     });
 
-    // Dessin de notre fusée (clignotement bleu/blanc si surchargé)
+    // --- RENDU VISUEL DE LA SURCHARGE (BOOST MAX) ---
     ctx.save();
+    let centreX = rocket.x + rocket.width / 2;
+    let centreY = rocket.y + rocket.height / 2;
+
     if (surchargeActive) {
-        if (Math.floor(surchargeTimer / 3) % 2 === 0) {
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = "#60a5fa";
-            ctx.globalAlpha = 0.8;
+        // 1. Dessiner un bouclier/aura électrique autour du vaisseau
+        let rayonAura = Math.max(rocket.width, rocket.height) * 0.65;
+        let pulse = 5 * Math.sin(surchargeTimer * 0.3); // Effet de vibration numérique
+        
+        ctx.beginPath();
+        ctx.arc(centreX, centreY, rayonAura + pulse, 0, 2 * Math.PI);
+        ctx.strokeStyle = "rgba(96, 165, 250, 0.8)";
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "#3b82f6";
+        ctx.stroke();
+
+        // 2. Traînées de particules d'énergie sous le vaisseau
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        for (let j = 0; j < 3; j++) {
+            let px = rocket.x + Math.random() * rocket.width;
+            let py = rocket.y + rocket.height + Math.random() * 30;
+            ctx.fillRect(px, py, 4, 12);
         }
+
+        // Effet d'éclat global sur le sprite
+        ctx.globalAlpha = 0.9;
     }
+
     if (assetsPrets.fusee) {
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
     } else {
-        ctx.font = "52px Arial"; ctx.textAlign = "center"; ctx.fillText("🚀", rocket.x + rocket.width / 2, rocket.y + 45);
+        ctx.font = "52px Arial"; ctx.textAlign = "center"; 
+        // Si surchargé sans les images, on ajoute de la postcombustion textuelle !
+        ctx.fillText(surchargeActive ? "⚡🚀🔥" : "🚀", centreX, rocket.y + 45);
     }
     ctx.restore();
 }
