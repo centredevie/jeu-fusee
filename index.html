@@ -71,7 +71,7 @@
         }
         #jauge-fill {
             width: 100%;
-            height: 45%; /* AJUSTEMENT : Départ à 45% pour montrer l'utilité du boost */
+            height: 30%; /* INTENTION : Départ à 30% (Alerte rouge immédiate) */
             background: linear-gradient(to top, #f59e0b, #ef4444);
             transition: height 0.1s linear;
         }
@@ -202,7 +202,7 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie
-let energie = 45; // AJUSTEMENT : 45% au démarrage pour introduire l'utilité du gameplay
+let energie = 30; // MODIFICATION : Réduit à 30% au démarrage pour forcer le besoin de boost immédiat
 const energieMax = 100;
 const drainInitial = 4.5; 
 
@@ -234,7 +234,7 @@ function scheduleNextSpawn() {
     if (gameOver) return;
 
     let alpha = getProgressionFactor();
-    let delaiMin = 450; // Un poil plus serré pour accentuer l'effet "pluie de débris" à la fin
+    let delaiMin = 450; 
     let delaiMax = 1300;
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
 
@@ -255,7 +255,6 @@ function genererFluxStructure(alpha) {
         } else if (alpha >= 0.45 && alpha < 0.80) {
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
         } else {
-            // Fin de partie : Densité de débris élevée (1 booster enveloppé dans 3 obstacles)
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
         }
     }
@@ -282,15 +281,12 @@ function triggerSpawn(typeChoisi, alpha) {
     if (typeChoisi === "obstacle") {
         let r = Math.random();
         
-        // Progression ultra fluide des débris ordinaires vers une pluie de météorites
-        // Les satellites disparaissent doucement, laissant place aux pierres
         let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.2)); 
         let poidsMeteorite = 1.0 - poidsSatellite;
         let poidsMissile = 0;
 
-        // AJUSTEMENT COHÉRENCE : Rarefication drastique des fusées en fin de jeu (fini le feu d'artifice)
         if (vActuelle >= 3.4) {
-            poidsMissile = 0.22; // Valeur fixe et basse pour agir comme un "Guest Star" dangereux
+            poidsMissile = 0.22; 
             poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile);
         }
 
@@ -307,21 +303,20 @@ function triggerSpawn(typeChoisi, alpha) {
             sousType = "meteorite";
             const scale = 0.12 + (Math.random() * 0.08);
             itemWidth = 435 * scale; itemHeight = 410 * scale;
-            
-            // Les météorites accélèrent proportionnellement à la vitesse de défilement
             speedFactor = 0.65 + (alpha * 0.15);
-            // Effet de pluie oblique plus ou moins prononcé
             vx = (Math.random() - 0.5) * (1.2 + alpha * 2.0); 
         } else {
             sousType = "missile"; 
             const scale = 0.15;
             itemWidth = 170 * scale; itemHeight = 486 * scale;
             
-            // Moins fréquentes mais redoutables quand elles déboulent
-            speedFactor = 0.18 + (alpha * 0.10); 
+            // MODIFICATION : Vitesse de descente initiale très adoucie au début (0.10 au lieu de 0.18)
+            speedFactor = 0.10 + (alpha * 0.12); 
             let centreRocket = rocket.x + rocket.width / 2;
             let centreItem = xInitial + itemWidth / 2;
-            vx = (centreRocket - centreItem) * (0.01 + alpha * 0.008); 
+            
+            // MODIFICATION : Premier tracking latéral beaucoup moins agressif à l'introduction
+            vx = (centreRocket - centreItem) * (0.004 + alpha * 0.01); 
         }
     } else {
         const scale = 0.24;
@@ -385,13 +380,14 @@ function update() {
                 let centreRocket = rocket.x + rocket.width / 2;
                 let centreItem = item.x + item.width / 2;
                 
-                let intensiteTracking = 0.04 + (alpha * 0.02);
+                // MODIFICATION : Ajustement final lui aussi indexé sur alpha pour adoucir le verrouillage
+                let intensiteTracking = 0.025 + (alpha * 0.035);
                 item.vx = (centreRocket - centreItem) * intensiteTracking;
                 item.vx = Math.max(-5.5, Math.min(5.5, item.vx));
             }
             if (item.allume) {
-                let accelerationFusee = 0.05 + (alpha * 0.03);
-                let maxVitesseMissile = 1.35 + (alpha * 0.35); 
+                let accelerationFusee = 0.04 + (alpha * 0.04);
+                let maxVitesseMissile = 1.20 + (alpha * 0.4); 
                 item.speedFactor = Math.min(maxVitesseMissile, item.speedFactor + accelerationFusee);
             }
         }
@@ -399,7 +395,6 @@ function update() {
         item.y += gameSpeed * item.speedFactor;
         item.x += item.vx;
 
-        // Rebond fluide des météorites sur les parois de l'écran pour l'effet "pluie chaotique"
         if (item.x < 0 || item.x + item.width > canvas.width) {
             item.vx = -item.vx;
         }
