@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orbite Critique - Équilibre Spatial</title>
+    <title>Orbite Critique - Mode Surcharge</title>
     <style>
         * {
             box-sizing: border-box;
@@ -55,6 +55,29 @@
         }
         #score-box { top: 15px; left: 15px; }
         #speed-box { top: 55px; left: 15px; }
+        
+        /* Message d'alerte Surcharge / Boss */
+        #alert-box {
+            position: absolute;
+            top: 110px;
+            left: 15px;
+            right: 55px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 6px;
+            border-radius: 4px;
+            display: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: clignote 0.5s infinite alternate;
+        }
+        .alert-surchargé { background: rgba(59, 130, 246, 0.9); border: 1px solid #60a5fa; color: white; }
+        .alert-boss { background: rgba(239, 68, 68, 0.9); border: 1px solid #f87171; color: white; }
+
+        @keyframes clignote {
+            from { opacity: 0.6; } to { opacity: 1; }
+        }
 
         #jauge-container {
             position: absolute;
@@ -71,10 +94,19 @@
         }
         #jauge-fill {
             width: 100%;
-            height: 30%; /* INTENTION : Départ à 30% (Alerte rouge immédiate) */
+            height: 30%;
             background: linear-gradient(to top, #f59e0b, #ef4444);
-            transition: height 0.1s linear;
+            transition: height 0.1s linear, background 0.2s;
         }
+        /* Style quand la jauge est en Surcharge */
+        #jauge-fill.surcharge {
+            background: linear-gradient(to top, #3b82f6, #60a5fa, #ffffff) !important;
+            animation: pulse-blue 0.2s infinite;
+        }
+        @keyframes pulse-blue {
+            0% { filter: brightness(1); } 50% { filter: brightness(1.4); } 100% { filter: brightness(1); }
+        }
+
         #jauge-label {
             position: absolute;
             right: -55px;
@@ -137,6 +169,7 @@
     <div id="ui-layer">
         <div id="score-box" class="hud-box">PUISSANCE: <span id="scoreText">0</span> ⚡</div>
         <div id="speed-box" class="hud-box">VITESSE: <span id="speedText">1.0x</span></div>
+        <div id="alert-box">SURCHARGE ACTIVÉE</div>
         <div id="jauge-container">
             <div id="jauge-fill"></div>
             <div id="jauge-label">Montée en puissance</div>
@@ -201,10 +234,12 @@ let gameOver = false;
 let items = [];
 let topScoresLocaux = [];
 
-// Énergie
-let energie = 30; // MODIFICATION : Réduit à 30% au démarrage pour forcer le besoin de boost immédiat
+// Énergie & Surcharge
+let energie = 30; 
 const energieMax = 100;
 const drainInitial = 4.5; 
+let surchargeActive = false;
+let surchargeTimer = 0;
 
 // Scrolling background
 let cameraY = 0;
@@ -237,6 +272,9 @@ function scheduleNextSpawn() {
     let delaiMin = 450; 
     let delaiMax = 1300;
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
+
+    // Si on est en surcharge, tout va un peu plus vite pour maximiser l'action
+    if (surchargeActive) tempsAttente *= 0.75;
 
     setTimeout(() => {
         genererFluxStructure(alpha);
@@ -278,15 +316,20 @@ function triggerSpawn(typeChoisi, alpha) {
     let vx = 0;
     let xInitial = Math.random() * (canvas.width - 80);
 
+    // Vérifier s'il y a déjà un boss fusée à l'écran
+    let fuséePresente = items.some(item => item.sousType === "missile");
+
     if (typeChoisi === "obstacle") {
         let r = Math.random();
         
-        let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.2)); 
+        let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.5)); 
+        // MODIFICATION : Les météorites prennent beaucoup plus de poids au milieu pour l'accélération
         let poidsMeteorite = 1.0 - poidsSatellite;
         let poidsMissile = 0;
 
-        if (vActuelle >= 3.4) {
-            poidsMissile = 0.22; 
+        // Le boss apparaît à partir de 3.5x, mais UN SEUL à la fois max
+        if (vActuelle >= 3.5 && !fuséePresente) {
+            poidsMissile = 0.25; 
             poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile);
         }
 
@@ -303,20 +346,20 @@ function triggerSpawn(typeChoisi, alpha) {
             sousType = "meteorite";
             const scale = 0.12 + (Math.random() * 0.08);
             itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.65 + (alpha * 0.15);
-            vx = (Math.random() - 0.5) * (1.2 + alpha * 2.0); 
+            
+            // ACCÉLÉRATION AVANT LE BOSS : Courbe d'accélération agressive des pierres dès le milieu (alpha * 0.45)
+            speedFactor = 0.60 + (alpha * 0.45);
+            vx = (Math.random() - 0.5) * (1.5 + alpha * 2.5); 
         } else {
+            // MODE BOSS FUSÉE UNIQUE
             sousType = "missile"; 
-            const scale = 0.15;
+            const scale = 0.20; // Plus gros pour faire effet "Boss"
             itemWidth = 170 * scale; itemHeight = 486 * scale;
             
-            // MODIFICATION : Vitesse de descente initiale très adoucie au début (0.10 au lieu de 0.18)
-            speedFactor = 0.10 + (alpha * 0.12); 
+            speedFactor = 0.08 + (alpha * 0.08); 
             let centreRocket = rocket.x + rocket.width / 2;
             let centreItem = xInitial + itemWidth / 2;
-            
-            // MODIFICATION : Premier tracking latéral beaucoup moins agressif à l'introduction
-            vx = (centreRocket - centreItem) * (0.004 + alpha * 0.01); 
+            vx = (centreRocket - centreItem) * 0.004; 
         }
     } else {
         const scale = 0.24;
@@ -340,16 +383,32 @@ function triggerSpawn(typeChoisi, alpha) {
 function update() {
     if (gameOver) return;
 
+    let alertBox = document.getElementById("alert-box");
+    let jaugeFill = document.getElementById("jauge-fill");
+
+    // Gestion du timer de la Surcharge
+    if (surchargeActive) {
+        surchargeTimer--;
+        if (surchargeTimer <= 0) {
+            surchargeActive = false;
+            jaugeFill.classList.remove("surcharge");
+            alertBox.style.display = "none";
+            energie = 50; // Retombe à la moitié après l'explosion d'énergie
+        }
+    }
+
     if (assetsPrets.fond && imgFond.naturalHeight > 0) {
         let ratio = canvas.width / imgFond.naturalWidth;
         let hEcran = imgFond.naturalHeight * ratio;
         let seuil = hEcran - canvas.height;
 
+        // Le fond défile deux fois plus vite en surcharge (effet de vitesse)
+        let multiplicateurVisuel = surchargeActive ? 2.0 : 1.0;
         if (!atteintEspaceEnHaut) {
-            cameraY += gameSpeed * 0.25;
+            cameraY += gameSpeed * 0.25 * multiplicateurVisuel;
             if (cameraY >= seuil) { atteintEspaceEnHaut = true; loopSpaceY = 0; }
         } else {
-            loopSpaceY = (loopSpaceY + gameSpeed * 0.25) % canvas.height;
+            loopSpaceY = (loopSpaceY + gameSpeed * 0.25 * multiplicateurVisuel) % canvas.height;
         }
     }
 
@@ -360,34 +419,53 @@ function update() {
     let alpha = getProgressionFactor();
     document.getElementById("speedText").innerText = (gameSpeed / 4.0).toFixed(1) + "x";
 
-    let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
-    if (alpha < 0.15) {
-        drainActuel *= 0.5; 
+    // Drain d'énergie arrêté en mode Surcharge
+    if (!surchargeActive) {
+        let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
+        if (alpha < 0.15) drainActuel *= 0.5; 
+        energie -= drainActuel * (1/60);
+        if (energie <= 0) { energie = 0; declencherGameOver(); return; }
+        jaugeFill.style.height = energie + "%";
+    } else {
+        jaugeFill.style.height = "100%";
     }
-    energie -= drainActuel * (1/60);
-    
-    if (energie <= 0) { energie = 0; declencherGameOver(); return; }
-    document.getElementById("jauge-fill").style.height = energie + "%";
 
-    rocket.x += (rocket.targetX - rocket.x) * 0.22;
+    // Gestion de l'affichage des alertes UI
+    let vActuelle = gameSpeed / 4.0;
+    let fuséePresente = items.some(item => item.sousType === "missile");
+    if (surchargeActive) {
+        alertBox.innerText = "⚡ SURCHARGE QUANTIQUE ⚡";
+        alertBox.className = "alert-surchargé";
+        alertBox.style.display = "block";
+    } else if (vActuelle >= 3.5 && fuséePresente) {
+        alertBox.innerText = "⚠️ ATTENTION : TRAJECTOIRE BOSS FUSÉE ⚠️";
+        alertBox.className = "alert-boss";
+        alertBox.style.display = "block";
+    } else {
+        alertBox.style.display = "none";
+    }
+
+    // Déplacement de notre fusée (Plus réactive en mode surcharge)
+    let vitesseReponse = surchargeActive ? 0.40 : 0.22;
+    rocket.x += (rocket.targetX - rocket.x) * vitesseReponse;
 
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
         
         if (item.sousType === "missile") {
-            if (item.y > 120 && !item.allume) {
+            if (item.y > 100 && !item.allume) {
                 item.allume = true;
                 let centreRocket = rocket.x + rocket.width / 2;
                 let centreItem = item.x + item.width / 2;
                 
-                // MODIFICATION : Ajustement final lui aussi indexé sur alpha pour adoucir le verrouillage
-                let intensiteTracking = 0.025 + (alpha * 0.035);
+                // Le boss ajuste sa mire chirurgicalement selon alpha
+                let intensiteTracking = 0.02 + (alpha * 0.03);
                 item.vx = (centreRocket - centreItem) * intensiteTracking;
-                item.vx = Math.max(-5.5, Math.min(5.5, item.vx));
+                item.vx = Math.max(-4.5, Math.min(4.5, item.vx));
             }
             if (item.allume) {
-                let accelerationFusee = 0.04 + (alpha * 0.04);
-                let maxVitesseMissile = 1.20 + (alpha * 0.4); 
+                let accelerationFusee = 0.03 + (alpha * 0.03);
+                let maxVitesseMissile = 1.10 + (alpha * 0.35); 
                 item.speedFactor = Math.min(maxVitesseMissile, item.speedFactor + accelerationFusee);
             }
         }
@@ -412,24 +490,44 @@ function update() {
         const iw = item.width * scaleI;
         const ih = item.height * scaleI;
 
+        // Détection des collisions
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                score += 15;
-                let apportEnergie = 24 * (1.0 + alpha * 0.6);
-                energie = Math.min(energieMax, energie + apportEnergie); 
+                if (energie >= 100 && !surchargeActive) {
+                    // EFFET SPÉCIAL : Déclenchement de la surcharge !
+                    surchargeActive = true;
+                    surchargeTimer = 210; // 3.5 secondes à 60 FPS
+                    jaugeFill.classList.add("surcharge");
+                    score += 50; // Bonus massif de suralimentation
+                } else if (!surchargeActive) {
+                    let apportEnergie = 24 * (1.0 + alpha * 0.6);
+                    energie = Math.min(energieMax, energie + apportEnergie); 
+                    score += 15;
+                } else {
+                    // En mode surcharge, ramasser un boost donne juste des points purs
+                    score += 30;
+                }
                 
                 items.splice(i, 1);
                 document.getElementById("scoreText").innerText = score;
                 continue;
             } else {
-                declencherGameOver();
-                return;
+                // Si on est surchargé, on brise les obstacles normaux sans mourir ! (Sauf le Boss qui annule la surcharge)
+                if (surchargeActive) {
+                    items.splice(i, 1);
+                    score += 10;
+                    document.getElementById("scoreText").innerText = score;
+                    continue;
+                } else {
+                    declencherGameOver();
+                    return;
+                }
             }
         }
 
         if (item.y > canvas.height) {
             items.splice(i, 1);
-            score += (item.type === "obstacle") ? (item.sousType === "missile" ? 4 : 2) : 1;
+            score += (item.type === "obstacle") ? (item.sousType === "missile" ? 8 : 2) : 1;
             document.getElementById("scoreText").innerText = score;
         }
     }
@@ -465,8 +563,8 @@ function draw() {
                     ctx.drawImage(imgMissile, -item.width / 2, -item.height / 2, item.width, item.height);
                     ctx.restore();
                 } else { 
-                    ctx.font = "40px Arial"; ctx.textAlign = "center"; 
-                    ctx.fillText(item.allume ? "🚀" : "🚨", item.x + item.width/2, item.y + 30); 
+                    ctx.font = "48px Arial"; ctx.textAlign = "center"; 
+                    ctx.fillText(item.allume ? "🔥🚀" : "🚨🚀", item.x + item.width/2, item.y + 35); 
                 }
             } else {
                 if (assetsPrets.meteorite) ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height);
@@ -478,11 +576,21 @@ function draw() {
         }
     });
 
+    // Dessin de notre fusée (clignotement bleu/blanc si surchargé)
+    ctx.save();
+    if (surchargeActive) {
+        if (Math.floor(surchargeTimer / 3) % 2 === 0) {
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = "#60a5fa";
+            ctx.globalAlpha = 0.8;
+        }
+    }
     if (assetsPrets.fusee) {
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
     } else {
         ctx.font = "52px Arial"; ctx.textAlign = "center"; ctx.fillText("🚀", rocket.x + rocket.width / 2, rocket.y + 45);
     }
+    ctx.restore();
 }
 
 function gameLoop() {
@@ -493,6 +601,7 @@ function gameLoop() {
 
 function declencherGameOver() {
     gameOver = true;
+    document.getElementById("jauge-fill").classList.remove("surcharge");
     document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
     document.getElementById("game-over-screen").style.display = "flex";
     
