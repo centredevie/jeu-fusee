@@ -257,14 +257,14 @@ function spawnItem() {
 
     let multVisuel = gameSpeed / 4;
     
-    // --- RECALIBRAGE PAR ZONE POUR ASSURER L'APPROVISIONNEMENT ---
-    let chanceBooster = 1.0; 
-    if (multVisuel >= 1.5 && multVisuel < 2.5) {
-        chanceBooster = 0.36; // Augmenté (28% -> 36%) pour redonner de l'air pendant les satellites
-    } else if (multVisuel >= 2.5 && multVisuel < 3.2) {
-        chanceBooster = 0.22; // Légèrement ajusté
-    } else if (multVisuel >= 3.2) {
-        chanceBooster = 0.16; // Reste rare pour le endgame tendu
+    // --- ÉQUILIBRAGE DE BASE STABLE ET SAIN ---
+    // On maintient un flot régulier de boosters tout au long de la partie (45%)
+    // Le jeu repose désormais sur l'ADRESSE à esquiver la vitesse qui augmente.
+    let chanceBooster = 0.45; 
+    
+    // Sauf au tout début pour charger la jauge initialement
+    if (multVisuel < 1.5) {
+        chanceBooster = 1.0;
     }
 
     let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
@@ -282,25 +282,21 @@ function spawnItem() {
     let xInitialProvisoire = Math.random() * (canvas.width - 100); 
 
     if (typeChoisi === "obstacle") {
-        if (multVisuel >= 1.5 && multVisuel < 2.5) {
-            if (Math.random() < 0.35) {
-                skipSpawn = true;
-            } else {
-                sousType = "satellite";
-            }
+        // Sélection fluide du type d'obstacle selon la hauteur/vitesse atteinte
+        if (multVisuel < 2.3) {
+            // Phase basse : Uniquement des Satellites lents et larges (Slalom d'apprentissage)
+            sousType = "satellite";
         } 
-        else if (multVisuel >= 2.5 && multVisuel < 3.2) {
-            sousType = (Math.random() < 0.20) ? "satellite" : "meteorite";
+        else if (multVisuel >= 2.3 && multVisuel < 3.2) {
+            // Phase moyenne : Transition douce, mélange de satellites et l'arrivée des météorites
+            sousType = (Math.random() < 0.30) ? "satellite" : "meteorite";
         } 
         else {
-            let de = Math.random();
-            if (de < 0.40) {
-                sousType = "missile";
-            } else {
-                sousType = "meteorite";
-            }
+            // Phase haute (Espace profond) : Météorites véloces et quelques Missiles ciblés
+            sousType = (Math.random() < 0.25) ? "missile" : "meteorite";
         }
 
+        // Configuration physique propre à chaque sous-type
         if (sousType === "satellite") {
             const scaleSatellite = 0.26; 
             itemWidth = 530 * scaleSatellite; 
@@ -308,7 +304,7 @@ function spawnItem() {
             speedFactor = 0.30; 
             vx = (Math.random() - 0.5) * 0.1; 
         } else if (sousType === "missile") {
-            speedFactor = 1.35; 
+            speedFactor = 1.25; 
             const scaleMissile = 0.15;
             itemWidth = 170 * scaleMissile;
             itemHeight = 486 * scaleMissile;
@@ -317,18 +313,19 @@ function spawnItem() {
             let centreRocketX = rocket.x + rocket.width / 2;
             let centreItemX = xInitialProvisoire + itemWidth / 2;
             
-            vx = (centreRocketX - centreItemX) * 0.025;
-            vx = Math.max(-3.8, Math.min(3.8, vx)); 
+            vx = (centreRocketX - centreItemX) * 0.022;
+            vx = Math.max(-3.5, Math.min(3.5, vx)); 
         } else {
             sousType = "meteorite";
             const possibleScales = [0.11, 0.14, 0.17, 0.20];
             const scale = possibleScales[Math.floor(Math.random() * possibleScales.length)];
             itemWidth = 435 * scale;
             itemHeight = 410 * scale;
-            speedFactor = (scale <= 0.14) ? 0.85 : 0.65; 
-            vx = (Math.random() - 0.5) * 1.8; 
+            speedFactor = (scale <= 0.14) ? 0.80 : 0.60; 
+            vx = (Math.random() - 0.5) * 1.5; 
         }
     } else {
+        // C'est un booster !
         const scale = 0.24; 
         itemWidth = 500 * scale;
         itemHeight = 281 * scale;
@@ -350,14 +347,11 @@ function spawnItem() {
         });
     }
 
-    let delaiDeBase = 1400;
-    if (multVisuel < 1.5) {
-        delaiDeBase = 1480; 
-    } else if (multVisuel >= 1.5 && multVisuel < 2.5) {
-        delaiDeBase = 1950; 
-    }
+    // --- TEMPO DE SPAWN HARMONISÉ ---
+    // On supprime les gros écarts de timing pour garder un flot propre et lisible
+    let delaiDeBase = (multVisuel < 1.5) ? 1480 : 1750;
+    let prochainSpawn = Math.max(550, delaiDeBase - (gameSpeed * 45));
     
-    let prochainSpawn = Math.max(480, delaiDeBase - (gameSpeed * 60));
     setTimeout(spawnItem, prochainSpawn);
 }
 
@@ -386,6 +380,7 @@ function update() {
     }
 
     timeElapsed += 1;
+    // Progression de vitesse douce et continue
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.0012) * 5.5; 
     if (gameSpeed > 16) gameSpeed = 16; 
 
