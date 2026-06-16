@@ -256,12 +256,18 @@ function spawnItem() {
 
     let multVisuel = gameSpeed / 4;
     
-    // Équilibrage de la rareté des boosters
+    // --- NOUVEL ÉQUILIBRAGE DE SÉCURITÉ POUR LES BOOSTERS ---
     let chanceBooster = 0.45; 
     if (multVisuel < 1.5) {
         chanceBooster = 1.0;
-    } else if (multVisuel >= 3.0) {
-        chanceBooster = 0.32; 
+    } 
+    // Entre 2.3x et 3.0x (la zone critique), on maintient un taux généreux de boosters pour éviter de tomber en rade
+    else if (multVisuel >= 2.3 && multVisuel < 3.0) {
+        chanceBooster = 0.42; 
+    }
+    // Entrée finale dans la zone des missiles (Boss) : le joueur doit avoir fait ses réserves
+    else if (multVisuel >= 3.0) {
+        chanceBooster = 0.30; 
     }
 
     let typeChoisi = (Math.random() < (1 - chanceBooster)) ? "obstacle" : "booster";
@@ -376,15 +382,15 @@ function update() {
     let multVisuel = gameSpeed / 4;
     document.getElementById("speedText").innerText = multVisuel.toFixed(1) + "x";
 
-    // --- CORRECTION DU DRAIN ENÉRGÉTIQUE ---
-    // Neutralisation du sur-drain pendant la phase des satellites (< 2.2x)
+    // --- GRADUATION DU DRAIN ÉNERGÉTIQUE ---
     let multiplicateurConsommation = 1.0;
     if (multVisuel >= 2.2) {
-        // La surconsommation ne s'active progressivement qu'après les satellites
-        multiplicateurConsommation = 1 + Math.max(0, (multVisuel - 2.2) * 2.0); 
+        // La courbe monte un peu plus doucement au début de la phase de transition (2.5x - 2.6x)
+        multiplicateurConsommation = 1 + Math.max(0, (multVisuel - 2.2) * 1.6); 
     }
     energie -= (drainDeBase * multiplicateurConsommation) * (1/60);
     
+    if (energie < 0) privilege = 0;
     if (energie < 0) energie = 0;
     document.getElementById("jauge-fill").style.height = energie + "%";
 
@@ -435,7 +441,7 @@ function update() {
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
                 score += 15;
-                energie = Math.min(energieMax, energie + 22); // Léger coup de pouce (+22 au lieu de 20)
+                energie = Math.min(energieMax, energie + 22); 
             } else {
                 declencherGameOver();
                 return;
