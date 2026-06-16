@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orbite Critique - Progression Continue</title>
+    <title>Orbite Critique - Flux Cadencé</title>
     <style>
         * {
             box-sizing: border-box;
@@ -71,7 +71,7 @@
         }
         #jauge-fill {
             width: 100%;
-            height: 15%;
+            height: 100%;
             background: linear-gradient(to top, #f59e0b, #ef4444);
             transition: height 0.1s linear;
         }
@@ -202,14 +202,17 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie
-let energie = 15;
+let energie = 100; 
 const energieMax = 100;
-const drainInitial = 5.0;
+const drainInitial = 4.5; // Légèrement adouci pour parfaire le confort global
 
 // Scrolling background
 let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
+
+// Nouvelle gestion de file d'attente anti-hasard (Anti-RNG)
+let pileObjetsProgrammes = [];
 
 prechargerScores();
 gameLoop();
@@ -231,43 +234,65 @@ function scheduleNextSpawn() {
     if (gameOver) return;
 
     let alpha = getProgressionFactor();
-    let delaiMin = 450;
-    let delaiMax = 1400;
+    
+    // Fréquence globale de chute des lignes d'objets
+    let delaiMin = 500;
+    let delaiMax = 1300;
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
 
     setTimeout(() => {
-        spawnDynamicItem();
+        genererFluxStructure(alpha);
         scheduleNextSpawn();
     }, tempsAttente);
 }
 
-function spawnDynamicItem() {
+// --- LOGIQUE MAJEURE : FAÇONNAGE DU CYCLE D'APPARITION ---
+function genererFluxStructure(alpha) {
     if (gameOver) return;
 
-    let alpha = getProgressionFactor();
-    let typeChoisi = "obstacle";
-    let sousType = "satellite";
-    
-    if (alpha < 0.12) {
-        // Mode tutoriel du début : uniquement des boosters
-        typeChoisi = "booster";
-    } else {
-        // CORRECTION : On maintient un taux de boosters stable à 45% pour lisser l'aspect aléatoire (RNG)
-        let probaBooster = 0.45; 
-        if (Math.random() < probaBooster) {
-            typeChoisi = "booster";
+    // Si notre conteneur de cycle est vide, on génère un tout nouveau paquet garanti équitable
+    if (pileObjetsProgrammes.length === 0) {
+        if (alpha < 0.15) {
+            // Tutoriel : Phase d'apprentissage (Uniquement du carburant)
+            pileObjetsProgrammes = ["booster", "booster", "booster"];
+        } else if (alpha >= 0.15 && alpha < 0.45) {
+            // Début du jeu : Équilibre doux (Alternance propre 1 pour 1)
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle"]);
+        } else if (alpha >= 0.45 && alpha < 0.80) {
+            // Milieu de partie (La fameuse zone critique : Garanti 1 booster pour 2 obstacles maximum)
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
+        } else {
+            // Phase finale intense : 1 booster caché dans un flux soutenu de 3 obstacles rapides
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
         }
     }
 
+    // On extrait le prochain objet planifié
+    let typeChoisi = pileObjetsProgrammes.shift();
+    triggerSpawn(typeChoisi, alpha);
+}
+
+// Outil mathématique pour mélanger de manière homogène le paquet de cycle
+function mélangerTableau(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function triggerSpawn(typeChoisi, alpha) {
+    let sousType = "satellite";
     let itemWidth, itemHeight, speedFactor = 1.0;
     let vx = 0;
     let xInitial = Math.random() * (canvas.width - 80);
 
     if (typeChoisi === "obstacle") {
         let r = Math.random();
-
-        let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.5)); 
-        let poidsMissile = Math.max(0, (alpha - 0.35) * 1.8);   
+        
+        // Distribution strictement progressive et continue des dangers
+        let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.4)); 
+        let poidsMissile = Math.max(0, (alpha - 0.35) * 1.7);   
         let poidsMeteorite = 1.0 - poidsSatellite - poidsMissile;
 
         let totalPoids = poidsSatellite + poidsMeteorite + poidsMissile;
@@ -277,28 +302,29 @@ function spawnDynamicItem() {
             sousType = "satellite";
             const scale = 0.26;
             itemWidth = 530 * scale; itemHeight = 415 * scale;
-            speedFactor = 0.32; 
+            speedFactor = 0.30; 
             vx = (Math.random() - 0.5) * 0.2;
         } else if (tirage < poidsSatellite + poidsMeteorite) {
             sousType = "meteorite";
             const scale = 0.12 + (Math.random() * 0.07);
             itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.75;
-            vx = (Math.random() - 0.5) * 2.2; 
+            speedFactor = 0.72;
+            vx = (Math.random() - 0.5) * (1.5 + alpha * 1.5); // Balayage latéral proportionnel
         } else {
             sousType = "missile"; 
             const scale = 0.15;
             itemWidth = 170 * scale; itemHeight = 486 * scale;
-            speedFactor = 0.20; 
+            speedFactor = 0.18; 
             
             let centreRocket = rocket.x + rocket.width / 2;
             let centreItem = xInitial + itemWidth / 2;
             vx = (centreRocket - centreItem) * 0.012; 
         }
     } else {
+        // Booster
         const scale = 0.24;
         itemWidth = 500 * scale; itemHeight = 281 * scale;
-        speedFactor = 0.95;
+        speedFactor = 0.90;
     }
 
     items.push({
@@ -337,7 +363,11 @@ function update() {
     let alpha = getProgressionFactor();
     document.getElementById("speedText").innerText = (gameSpeed / 4.0).toFixed(1) + "x";
 
-    let drainActuel = drainInitial * (1.0 + alpha * 1.4); 
+    // Gestion fluide du réservoir d'énergie
+    let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
+    if (alpha < 0.15) {
+        drainActuel *= 0.5; // Consommation réduite pendant la phase d'apprentissage
+    }
     energie -= drainActuel * (1/60);
     
     if (energie <= 0) { energie = 0; declencherGameOver(); return; }
@@ -353,11 +383,11 @@ function update() {
                 item.allume = true;
                 let centreRocket = rocket.x + rocket.width / 2;
                 let centreItem = item.x + item.width / 2;
-                item.vx = (centreRocket - centreItem) * 0.05;
+                item.vx = (centreRocket - centreItem) * 0.052;
                 item.vx = Math.max(-5.5, Math.min(5.5, item.vx));
             }
             if (item.allume) {
-                item.speedFactor = Math.min(1.7, item.speedFactor + 0.08);
+                item.speedFactor = Math.min(1.65, item.speedFactor + 0.075);
             }
         }
 
@@ -384,8 +414,8 @@ function update() {
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
                 score += 15;
-                // CORRECTION : La valeur de recharge augmente proportionnellement à la vitesse globale
-                let apportEnergie = 22 * (1.0 + alpha * 0.5);
+                // Gain d'énergie dynamique proportionnel pour indexer les récompenses sur la vitesse
+                let apportEnergie = 24 * (1.0 + alpha * 0.6);
                 energie = Math.min(energieMax, energie + apportEnergie); 
                 
                 items.splice(i, 1);
