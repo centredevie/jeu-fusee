@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orbite Critique - Flux Cadencé</title>
+    <title>Orbite Critique - Équilibre Spatial</title>
     <style>
         * {
             box-sizing: border-box;
@@ -71,7 +71,7 @@
         }
         #jauge-fill {
             width: 100%;
-            height: 100%;
+            height: 45%; /* AJUSTEMENT : Départ à 45% pour montrer l'utilité du boost */
             background: linear-gradient(to top, #f59e0b, #ef4444);
             transition: height 0.1s linear;
         }
@@ -202,7 +202,7 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie
-let energie = 100; 
+let energie = 45; // AJUSTEMENT : 45% au démarrage pour introduire l'utilité du gameplay
 const energieMax = 100;
 const drainInitial = 4.5; 
 
@@ -234,7 +234,7 @@ function scheduleNextSpawn() {
     if (gameOver) return;
 
     let alpha = getProgressionFactor();
-    let delaiMin = 500;
+    let delaiMin = 450; // Un poil plus serré pour accentuer l'effet "pluie de débris" à la fin
     let delaiMax = 1300;
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
 
@@ -255,6 +255,7 @@ function genererFluxStructure(alpha) {
         } else if (alpha >= 0.45 && alpha < 0.80) {
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
         } else {
+            // Fin de partie : Densité de débris élevée (1 booster enveloppé dans 3 obstacles)
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
         }
     }
@@ -272,7 +273,7 @@ function mélangerTableau(arr) {
 }
 
 function triggerSpawn(typeChoisi, alpha) {
-    let vActuelle = gameSpeed / 4.0; // Vitesse réelle affichée au HUD (ex: 2.4x)
+    let vActuelle = gameSpeed / 4.0; 
     let sousType = "satellite";
     let itemWidth, itemHeight, speedFactor = 1.0;
     let vx = 0;
@@ -281,18 +282,16 @@ function triggerSpawn(typeChoisi, alpha) {
     if (typeChoisi === "obstacle") {
         let r = Math.random();
         
-        // Distribution de base des obstacles ordinaires
-        let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.4)); 
+        // Progression ultra fluide des débris ordinaires vers une pluie de météorites
+        // Les satellites disparaissent doucement, laissant place aux pierres
+        let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.2)); 
         let poidsMeteorite = 1.0 - poidsSatellite;
         let poidsMissile = 0;
 
-        // FIX RADICAL : Les missiles sont strictement interdits sous les 3.4x de vitesse
+        // AJUSTEMENT COHÉRENCE : Rarefication drastique des fusées en fin de jeu (fini le feu d'artifice)
         if (vActuelle >= 3.4) {
-            // Ils apparaissent doucement entre 3.4x et 4.0x
-            poidsMissile = (vActuelle - 3.4) * 1.5; 
-            // On recalcule le compromis pour que les trois s'équilibrent
-            poidsSatellite = Math.max(0, poidsSatellite - poidsMissile * 0.5);
-            poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile * 0.5);
+            poidsMissile = 0.22; // Valeur fixe et basse pour agir comme un "Guest Star" dangereux
+            poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile);
         }
 
         let totalPoids = poidsSatellite + poidsMeteorite + poidsMissile;
@@ -306,25 +305,28 @@ function triggerSpawn(typeChoisi, alpha) {
             vx = (Math.random() - 0.5) * 0.2;
         } else if (tirage < poidsSatellite + poidsMeteorite) {
             sousType = "meteorite";
-            const scale = 0.12 + (Math.random() * 0.07);
+            const scale = 0.12 + (Math.random() * 0.08);
             itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.72;
-            vx = (Math.random() - 0.5) * (1.5 + alpha * 1.5); 
+            
+            // Les météorites accélèrent proportionnellement à la vitesse de défilement
+            speedFactor = 0.65 + (alpha * 0.15);
+            // Effet de pluie oblique plus ou moins prononcé
+            vx = (Math.random() - 0.5) * (1.2 + alpha * 2.0); 
         } else {
             sousType = "missile"; 
             const scale = 0.15;
             itemWidth = 170 * scale; itemHeight = 486 * scale;
             
-            // Physique adoucie adaptée à son nouveau palier d'apparition avancé
-            speedFactor = 0.15 + (alpha * 0.08); 
+            // Moins fréquentes mais redoutables quand elles déboulent
+            speedFactor = 0.18 + (alpha * 0.10); 
             let centreRocket = rocket.x + rocket.width / 2;
             let centreItem = xInitial + itemWidth / 2;
-            vx = (centreRocket - centreItem) * (0.008 + alpha * 0.006); 
+            vx = (centreRocket - centreItem) * (0.01 + alpha * 0.008); 
         }
     } else {
         const scale = 0.24;
         itemWidth = 500 * scale; itemHeight = 281 * scale;
-        speedFactor = 0.90;
+        speedFactor = 0.85;
     }
 
     items.push({
@@ -383,13 +385,13 @@ function update() {
                 let centreRocket = rocket.x + rocket.width / 2;
                 let centreItem = item.x + item.width / 2;
                 
-                let intensiteTracking = 0.035 + (alpha * 0.025);
+                let intensiteTracking = 0.04 + (alpha * 0.02);
                 item.vx = (centreRocket - centreItem) * intensiteTracking;
-                item.vx = Math.max(-5.0, Math.min(5.0, item.vx));
+                item.vx = Math.max(-5.5, Math.min(5.5, item.vx));
             }
             if (item.allume) {
-                let accelerationFusee = 0.045 + (alpha * 0.035);
-                let maxVitesseMissile = 1.25 + (alpha * 0.4); 
+                let accelerationFusee = 0.05 + (alpha * 0.03);
+                let maxVitesseMissile = 1.35 + (alpha * 0.35); 
                 item.speedFactor = Math.min(maxVitesseMissile, item.speedFactor + accelerationFusee);
             }
         }
@@ -397,6 +399,7 @@ function update() {
         item.y += gameSpeed * item.speedFactor;
         item.x += item.vx;
 
+        // Rebond fluide des météorites sur les parois de l'écran pour l'effet "pluie chaotique"
         if (item.x < 0 || item.x + item.width > canvas.width) {
             item.vx = -item.vx;
         }
