@@ -211,7 +211,7 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// File d'attente anti-hasard (Cycles de spawn équitables)
+// File d'attente anti-hasard
 let pileObjetsProgrammes = [];
 
 prechargerScores();
@@ -272,6 +272,7 @@ function mélangerTableau(arr) {
 }
 
 function triggerSpawn(typeChoisi, alpha) {
+    let vActuelle = gameSpeed / 4.0; // Vitesse réelle affichée au HUD (ex: 2.4x)
     let sousType = "satellite";
     let itemWidth, itemHeight, speedFactor = 1.0;
     let vx = 0;
@@ -280,9 +281,19 @@ function triggerSpawn(typeChoisi, alpha) {
     if (typeChoisi === "obstacle") {
         let r = Math.random();
         
+        // Distribution de base des obstacles ordinaires
         let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.4)); 
-        let poidsMissile = Math.max(0, (alpha - 0.35) * 1.7);   
-        let poidsMeteorite = 1.0 - poidsSatellite - poidsMissile;
+        let poidsMeteorite = 1.0 - poidsSatellite;
+        let poidsMissile = 0;
+
+        // FIX RADICAL : Les missiles sont strictement interdits sous les 3.4x de vitesse
+        if (vActuelle >= 3.4) {
+            // Ils apparaissent doucement entre 3.4x et 4.0x
+            poidsMissile = (vActuelle - 3.4) * 1.5; 
+            // On recalcule le compromis pour que les trois s'équilibrent
+            poidsSatellite = Math.max(0, poidsSatellite - poidsMissile * 0.5);
+            poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile * 0.5);
+        }
 
         let totalPoids = poidsSatellite + poidsMeteorite + poidsMissile;
         let tirage = r * totalPoids;
@@ -304,14 +315,11 @@ function triggerSpawn(typeChoisi, alpha) {
             const scale = 0.15;
             itemWidth = 170 * scale; itemHeight = 486 * scale;
             
-            // CORRECTION : La vitesse d'approche initiale des fusées dépend désormais de alpha (plus douce au début)
-            speedFactor = 0.12 + (alpha * 0.10); 
-            
+            // Physique adoucie adaptée à son nouveau palier d'apparition avancé
+            speedFactor = 0.15 + (alpha * 0.08); 
             let centreRocket = rocket.x + rocket.width / 2;
             let centreItem = xInitial + itemWidth / 2;
-            
-            // CORRECTION : Trajectoire latérale d'ajustement plus douce au début de leur introduction
-            vx = (centreRocket - centreItem) * (0.006 + alpha * 0.008); 
+            vx = (centreRocket - centreItem) * (0.008 + alpha * 0.006); 
         }
     } else {
         const scale = 0.24;
@@ -370,21 +378,18 @@ function update() {
         const item = items[i];
         
         if (item.sousType === "missile") {
-            // Se déclenche un poil plus bas pour laisser le temps de lire la trajectoire initiale
             if (item.y > 120 && !item.allume) {
                 item.allume = true;
                 let centreRocket = rocket.x + rocket.width / 2;
                 let centreItem = item.x + item.width / 2;
                 
-                // CORRECTION : Le tracking final de la fusée devient plus serré à mesure que alpha grandit
-                let intensiteTracking = 0.03 + (alpha * 0.03);
+                let intensiteTracking = 0.035 + (alpha * 0.025);
                 item.vx = (centreRocket - centreItem) * intensiteTracking;
                 item.vx = Math.max(-5.0, Math.min(5.0, item.vx));
             }
             if (item.allume) {
-                // CORRECTION : L'accélération du moteur est elle aussi progressive selon le niveau du joueur
-                let accelerationFusee = 0.04 + (alpha * 0.04);
-                let maxVitesseMissile = 1.2 + (alpha * 0.5); // Plafond physique plus bas au début
+                let accelerationFusee = 0.045 + (alpha * 0.035);
+                let maxVitesseMissile = 1.25 + (alpha * 0.4); 
                 item.speedFactor = Math.min(maxVitesseMissile, item.speedFactor + accelerationFusee);
             }
         }
