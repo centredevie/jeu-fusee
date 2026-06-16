@@ -297,14 +297,12 @@ function spawnItem() {
             speedFactor = 0.30; 
             vx = (Math.random() - 0.5) * 0.1; 
         } else if (sousType === "missile") {
-            // UN MISSILE COMMENCE LENTEMENT (DÉTECTION) PUIS ACCÉLÈRE PLUS TARD
             speedFactor = 0.25; 
             const scaleMissile = 0.15;
             itemWidth = 170 * scaleMissile;
             itemHeight = 486 * scaleMissile;
             estTraqueur = true;
             
-            // Calcul du vecteur de visée initial
             let centreRocketX = rocket.x + rocket.width / 2;
             let centreItemX = xInitialProvisoire + itemWidth / 2;
             vx = (centreRocketX - centreItemX) * 0.015; 
@@ -335,7 +333,7 @@ function spawnItem() {
         speedFactor: speedFactor,
         vx: vx,
         traqueur: estTraqueur,
-        allume: false // Gère la phase d'allumage des moteurs du missile
+        allume: false 
     });
 
     let delaiDeBase = (multVisuel < 1.5) ? 1480 : 1750;
@@ -379,8 +377,12 @@ function update() {
     document.getElementById("speedText").innerText = multVisuel.toFixed(1) + "x";
 
     // --- CORRECTION DU DRAIN ENÉRGÉTIQUE ---
-    // Plus le joueur va vite, plus le vaisseau consomme de manière exponentielle.
-    let multiplicateurConsommation = 1 + Math.max(0, (multVisuel - 1.5) * 1.8); 
+    // Neutralisation du sur-drain pendant la phase des satellites (< 2.2x)
+    let multiplicateurConsommation = 1.0;
+    if (multVisuel >= 2.2) {
+        // La surconsommation ne s'active progressivement qu'après les satellites
+        multiplicateurConsommation = 1 + Math.max(0, (multVisuel - 2.2) * 2.0); 
+    }
     energie -= (drainDeBase * multiplicateurConsommation) * (1/60);
     
     if (energie < 0) energie = 0;
@@ -396,22 +398,16 @@ function update() {
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
         
-        // --- MÉCANIQUE ACCÉLÉRATION MISSILE ---
         if (item.sousType === "missile") {
-            // Le missile descend tranquillement au début pour se faire repérer.
-            // Dès qu'il franchit le premier tiers de l'écran (y > 120), il allume son réacteur final.
             if (item.y > 120 && !item.allume) {
                 item.allume = true;
-                // Verrouillage de la position de la fusée au moment de l'allumage
                 let centreRocketX = rocket.x + rocket.width / 2;
                 let centreItemX = item.x + item.width / 2;
-                // Calcul d'un vecteur d'attaque précis et rapide
                 item.vx = (centreRocketX - centreItemX) * 0.045;
                 item.vx = Math.max(-5, Math.min(5, item.vx));
             }
 
             if (item.allume) {
-                // Accélération continue du missile après allumage
                 item.speedFactor = Math.min(1.65, item.speedFactor + 0.07);
             }
         }
@@ -419,7 +415,6 @@ function update() {
         item.y += gameSpeed * (item.speedFactor || 1);
         item.x += item.vx;
 
-        // Rebond sur les bords (sauf pour les missiles lancés)
         if (item.x < 0 || item.x + item.width > canvas.width) {
             item.vx = -item.vx;
         }
@@ -440,7 +435,7 @@ function update() {
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
                 score += 15;
-                energie = Math.min(energieMax, energie + 20); 
+                energie = Math.min(energieMax, energie + 22); // Léger coup de pouce (+22 au lieu de 20)
             } else {
                 declencherGameOver();
                 return;
