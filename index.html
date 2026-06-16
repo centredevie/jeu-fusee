@@ -51,27 +51,37 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 canvas.width = 450; canvas.height = 800;
 
-// Images
-const imgs = { fond: new Image(), fusee: new Image(), meteorite: new Image(), booster: new Image(), satellite: new Image(), missile: new Image() };
-imgs.fond.src = 'fond_decollage.png'; imgs.fusee.src = 'fusee.png'; imgs.meteorite.src = 'meteorite.png'; imgs.booster.src = 'booster.png'; imgs.satellite.src = 'satellite.png'; imgs.missile.src = 'missile.png';
+// Gestion des images avec états de chargement individuels
+const imgs = {
+    fond: { img: new Image(), prete: false },
+    fusee: { img: new Image(), prete: false },
+    meteorite: { img: new Image(), prete: false },
+    booster: { img: new Image(), prete: false },
+    satellite: { img: new Image(), prete: false },
+    missile: { img: new Image(), prete: false }
+};
 
-let assetsPrets = 0;
-Object.values(imgs).forEach(img => img.onload = () => assetsPrets++);
+imgs.fond.img.src = 'fond_decollage.png';       imgs.fond.img.onload = () => imgs.fond.prete = true;
+imgs.fusee.img.src = 'fusee.png';               imgs.fusee.img.onload = () => { imgs.fusee.prete = true; redimensionnerFusee(); };
+imgs.meteorite.img.src = 'meteorite.png';       imgs.meteorite.img.onload = () => imgs.meteorite.prete = true;
+imgs.booster.img.src = 'booster.png';           imgs.booster.img.onload = () => imgs.booster.prete = true;
+imgs.satellite.img.src = 'satellite.png';       imgs.satellite.img.onload = () => imgs.satellite.prete = true;
+imgs.missile.img.src = 'missile.png';           imgs.missile.img.onload = () => imgs.missile.prete = true;
 
 // Fusée
 const rocket = { x: 195, y: 600, width: 60, height: 165, targetX: 195 };
-imgs.fusee.onload = () => {
-    rocket.height = rocket.width * (imgs.fusee.naturalHeight / imgs.fusee.naturalWidth);
+function redimensionnerFusee() {
+    rocket.height = rocket.width * (imgs.fusee.img.naturalHeight / imgs.fusee.img.naturalWidth);
     rocket.y = canvas.height - rocket.height - 40;
-};
+}
 
 // Variables d'état
 let score = 0;
 let gameSpeed = 4; 
 let timeElapsed = 0;
 let gameOver = false;
-let energie = 50; // Départ confortable
-const drainParFrame = 6.0 / 60; // Consommation 100% stable et fixe (6% par sec)
+let energie = 50; 
+const drainParFrame = 6.0 / 60; 
 
 let cameraY = 0;
 let atteintEspace = false;
@@ -89,55 +99,47 @@ function prechargerScores() {
 function spawnItem() {
     if (gameOver) return;
 
-    let mult = gameSpeed / 4; // Notre multiplicateur de vitesse globale
+    let mult = gameSpeed / 4; 
     let type = "obstacle";
     let sousType = "booster";
 
-    // Distribution des types selon la progression logique du jeu
     if (mult < 1.5) {
-        // Phase 1 : Tutoriel Énergie (Uniquement des boosters)
         type = "booster";
     } else {
-        // Taux d'apparition des boosters régulier et sain (environ 35% de boosters)
         type = (Math.random() < 0.35) ? "booster" : "obstacle";
     }
 
     if (type === "obstacle") {
         if (mult >= 1.5 && mult < 2.2) {
-            // Phase 2 : Satellites (Basse altitude)
             sousType = "satellite";
         } else if (mult >= 2.2 && mult < 3.0) {
-            // Phase 3 : Météorites (Espace profond)
             sousType = "meteorite";
         } else {
-            // Phase 4 : Boss (Météorites + Missiles intercepteurs occasionnels)
             sousType = (Math.random() < 0.25) ? "missile" : "meteorite";
         }
     }
 
-    // Propriétés de l'item généré
     let item = {
         x: Math.random() * (canvas.width - 70),
         y: -100,
         width: 50, height: 50,
         type: type, sousType: sousType,
         vy: 1, vx: 0,
-        timerMissile: 0 // Utilisé pour le verrouillage du missile
+        timerMissile: 0
     };
 
-    // Ajustement des dimensions et comportements de base
     if (sousType === "satellite") {
         item.width = 110; item.height = 85;
-        item.vy = 0.4; // Descend lentement
-        item.vx = (Math.random() - 0.5) * 0.5; // Léger mouvement latéral
+        item.vy = 0.4; 
+        item.vx = (Math.random() - 0.5) * 0.5; 
     } else if (sousType === "meteorite") {
         let size = 45 + Math.random() * 30;
         item.width = size; item.height = size;
-        item.vy = 0.85; // Vitesse standard
-        item.vx = (Math.random() - 0.5) * 1.5; // Slalom
+        item.vy = 0.85; 
+        item.vx = (Math.random() - 0.5) * 1.5; 
     } else if (sousType === "missile") {
         item.width = 25; item.height = 70;
-        item.vy = 0.1; // Stationnaire au spawn pour verrouiller
+        item.vy = 0.1; 
     } else if (type === "booster") {
         item.width = 90; item.height = 50;
         item.vy = 1.0;
@@ -145,7 +147,6 @@ function spawnItem() {
 
     items.push(item);
 
-    // Cadence d'apparition qui s'accélère doucement avec la vitesse globale
     let delaiSpawn = Math.max(500, 1600 - (gameSpeed * 40));
     setTimeout(spawnItem, delaiSpawn);
 }
@@ -153,7 +154,6 @@ function spawnItem() {
 function update() {
     if (gameOver) return;
 
-    // Progression naturelle et infinie de la vitesse
     timeElapsed++;
     gameSpeed = 4 + Math.log(1 + timeElapsed * 0.001) * 6;
     if (gameSpeed > 18) gameSpeed = 18;
@@ -161,20 +161,17 @@ function update() {
     let mult = gameSpeed / 4;
     document.getElementById("speedText").innerText = mult.toFixed(1) + "x";
 
-    // Gestion de l'énergie linéaire
     energie -= drainParFrame;
     if (energie < 0) energie = 0;
     document.getElementById("jauge-fill").style.height = energie + "%";
 
     if (energie === 0) { declencherGameOver(); return; }
 
-    // Déplacement de la fusée (suivi fluide)
     rocket.x += (rocket.targetX - rocket.x) * 0.22;
 
-    // Défilement du fond d'écran
-    if (imgs.fond.naturalHeight > 0) {
-        let echelle = canvas.width / imgs.fond.naturalWidth;
-        let hRendu = imgs.fond.naturalHeight * echelle;
+    if (imgs.fond.prete && imgs.fond.img.naturalHeight > 0) {
+        let echelle = canvas.width / imgs.fond.img.naturalWidth;
+        let hRendu = imgs.fond.img.naturalHeight * echelle;
         if (!atteintEspace) {
             cameraY += gameSpeed * 0.25;
             if (cameraY >= hRendu - canvas.height) atteintEspace = true;
@@ -183,40 +180,34 @@ function update() {
         }
     }
 
-    // Update des objets
     for (let i = items.length - 1; i >= 0; i--) {
         let item = items[i];
 
-        // Logique spécifique du Missile Intercepteur (Verrouillage puis Charge)
         if (item.sousType === "missile") {
             item.timerMissile += 1/60;
             if (item.timerMissile < 0.4) {
-                // Phase d'alignement sur la fusée
                 let cibleX = rocket.x + rocket.width/2 - item.width/2;
                 item.x += (cibleX - item.x) * 0.1;
             } else if (item.timerMissile >= 0.4 && item.vy < 1.5) {
-                // Propulsion déclenchée !
                 item.vy = 1.8;
             }
         }
 
-        // Déplacement physique basé sur la vitesse globale du jeu
         item.y += gameSpeed * item.vy;
         item.x += item.vx;
 
-        // Rebond basique sur les parois pour les météorites et satellites
         if (item.sousType !== "missile" && (item.x < 0 || item.x + item.width > canvas.width)) {
             item.vx = -item.vx;
         }
 
-        // Hitbox simplifiée et permissive (AABB réduite à 70% pour le confort visuel)
+        // Hitboxes ajustées à 70% pour le confort
         let rBox = { x: rocket.x + rocket.width * 0.15, y: rocket.y + rocket.height * 0.1, w: rocket.width * 0.7, h: rocket.height * 0.8 };
         let iBox = { x: item.x + item.width * 0.15, y: item.y + item.height * 0.1, w: item.width * 0.7, h: item.height * 0.8 };
 
-        if (rBox.x < iBox.x + iBox.w && rBox.x + rBox.w > iBox.x && rBox.y < iBox.y + iBox.h && rBox.y + rBox.w > iBox.y) {
+        if (rBox.x < iBox.x + iBox.w && rBox.x + rBox.w > iBox.x && rBox.y < iBox.y + iBox.h && rBox.y + rBox.h > iBox.y) {
             if (item.type === "booster") {
                 score += 10;
-                energie = Math.min(100, energie + 25); // Gain net fixe
+                energie = Math.min(100, energie + 25); 
                 items.splice(i, 1);
                 document.getElementById("scoreText").innerText = score;
                 continue;
@@ -226,7 +217,6 @@ function update() {
             }
         }
 
-        // Sortie d'écran
         if (item.y > canvas.height) {
             items.splice(i, 1);
             score += (item.type === "obstacle") ? 2 : 0;
@@ -238,41 +228,40 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Dessin du fond d'écran structuré
-    if (assetsPrets >= 1 && imgs.fond.naturalHeight > 0) {
-        let echelle = canvas.width / imgs.fond.naturalWidth;
-        let hRendu = imgs.fond.naturalHeight * echelle;
+    if (imgs.fond.prete && imgs.fond.img.naturalHeight > 0) {
+        let echelle = canvas.width / imgs.fond.img.naturalWidth;
+        let hRendu = imgs.fond.img.naturalHeight * echelle;
         if (!atteintEspace) {
-            ctx.drawImage(imgs.fond, 0, -(hRendu - canvas.height) + cameraY, canvas.width, hRendu);
+            ctx.drawImage(imgs.fond.img, 0, -(hRendu - canvas.height) + cameraY, canvas.width, hRendu);
         } else {
-            ctx.drawImage(imgs.fond, 0, 0, imgs.fond.naturalWidth, imgs.fond.naturalWidth * (canvas.height/canvas.width), 0, cameraY, canvas.width, canvas.height);
-            ctx.drawImage(imgs.fond, 0, 0, imgs.fond.naturalWidth, imgs.fond.naturalWidth * (canvas.height/canvas.width), 0, cameraY - canvas.height, canvas.width, canvas.height);
+            ctx.drawImage(imgs.fond.img, 0, 0, imgs.fond.img.naturalWidth, imgs.fond.img.naturalWidth * (canvas.height/canvas.width), 0, cameraY, canvas.width, canvas.height);
+            ctx.drawImage(imgs.fond.img, 0, 0, imgs.fond.img.naturalWidth, imgs.fond.img.naturalWidth * (canvas.height/canvas.width), 0, cameraY - canvas.height, canvas.width, canvas.height);
         }
     } else {
         ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Dessin des entités (fallback emoji si l'image n'est pas chargée)
+    // Dessin au cas par cas selon l'état de chargement de CHAQUE image
     items.forEach(item => {
         if (item.type === "booster") {
-            if (assetsPrets === 6) ctx.drawImage(imgs.booster, item.x, item.y, item.width, item.height);
+            if (imgs.booster.prete) ctx.drawImage(imgs.booster.img, item.x, item.y, item.width, item.height);
             else { ctx.font = "35px Arial"; ctx.fillText("🔋", item.x, item.y + 35); }
         } else {
             if (item.sousType === "satellite") {
-                if (assetsPrets === 6) ctx.drawImage(imgs.satellite, item.x, item.y, item.width, item.height);
+                if (imgs.satellite.prete) ctx.drawImage(imgs.satellite.img, item.x, item.y, item.width, item.height);
                 else { ctx.font = "40px Arial"; ctx.fillText("🛰️", item.x, item.y + 40); }
             } else if (item.sousType === "meteorite") {
-                if (assetsPrets === 6) ctx.drawImage(imgs.meteorite, item.x, item.y, item.width, item.height);
+                if (imgs.meteorite.prete) ctx.drawImage(imgs.meteorite.img, item.x, item.y, item.width, item.height);
                 else { ctx.font = "35px Arial"; ctx.fillText("☄️", item.x, item.y + 35); }
             } else if (item.sousType === "missile") {
-                if (assetsPrets === 6) ctx.drawImage(imgs.missile, item.x, item.y, item.width, item.height);
+                if (imgs.missile.prete) ctx.drawImage(imgs.missile.img, item.x, item.y, item.width, item.height);
                 else { ctx.font = "35px Arial"; ctx.fillText(item.timerMissile > 0.4 ? "🔥" : "🚨", item.x, item.y + 40); }
             }
         }
     });
 
-    // Joueur
-    if (assetsPrets === 6) ctx.drawImage(imgs.fusee, rocket.x, rocket.y, rocket.width, rocket.height);
+    // Dessin Joueur indépendant
+    if (imgs.fusee.prete) ctx.drawImage(imgs.fusee.img, rocket.x, rocket.y, rocket.width, rocket.height);
     else { ctx.font = "50px Arial"; ctx.fillText("🚀", rocket.x, rocket.y + 50); }
 }
 
