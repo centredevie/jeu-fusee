@@ -329,31 +329,32 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
     let itemWidth, itemHeight, speedFactor = 1.0;
     let vx = 0;
     let xInitial = Math.random() * (canvas.width - 80);
-    let yInitial = -100; // Par défaut au dessus de l'écran
+    let yInitial = -100; 
     let alpha = getProgressionFactor();
 
     let fuséePresente = items.some(item => item.sousType === "missile");
 
     if (typeChoisi === "obstacle") {
         if (phaseActuelle === 2) {
-            // COMPORTEMENT HORIZONTAL DE L'AVION (Dimensions 500x174px)
+            // COMPORTEMENT DIAGONAL DE L'AVION (Plus grand, défilement horizontal lent + descente)
             sousType = "avion";
-            const scale = 0.22; // Échelle ajustée pour intégrer le format 500x174 proprement
+            const scale = 0.35; // Augmenté pour rendre l'avion plus grand et menaçant
             itemWidth = 500 * scale; 
             itemHeight = 174 * scale;
             
-            speedFactor = 0; // L'avion ne descend PAS verticalement !
+            // speedFactor à 0.15 permet une descente verticale lente et progressive
+            speedFactor = 0.15; 
 
             // Choisit un côté de départ au hasard (Gauche ou Droite)
             let partDeGauche = Math.random() < 0.5;
             xInitial = partDeGauche ? -itemWidth : canvas.width;
             
-            // Vitesse horizontale constante et tranquille (entre 2.5 et 3.5 pixels/frame)
-            let vitesseVol = 2.5 + Math.random() * 1.0;
+            // Vitesse horizontale tranquille et constante (entre 2.0 et 3.0 px/frame)
+            let vitesseVol = 2.0 + Math.random() * 1.0;
             vx = partDeGauche ? vitesseVol : -vitesseVol;
 
-            // Hauteur aléatoire sécurisée dans la moitié haute du ciel
-            yInitial = 120 + Math.random() * 220; 
+            // Apparaît tout en haut pour entamer sa descente en diagonale
+            yInitial = -itemHeight; 
 
         } else if (phaseActuelle === 3) {
             sousType = "satellite";
@@ -509,7 +510,7 @@ function update() {
         let scaleI = 0.70;
         if (item.sousType === "satellite") scaleI = 0.55;
         else if (item.sousType === "missile") scaleI = 0.60;
-        else if (item.sousType === "avion") scaleI = 0.75; // Masque ajusté pour sa longueur
+        else if (item.sousType === "avion") scaleI = 0.75; 
 
         const rx = rocket.x + rocket.width * (1 - scaleR) / 2;
         const ry = rocket.y + rocket.height * (1 - scaleR) / 2;
@@ -555,14 +556,14 @@ function update() {
             }
         }
 
-        // Sortie de l'écran (Vérification adaptée pour le nettoyage des avions qui sortent par les côtés)
+        // Nettoyage quand l'objet sort complètement des limites
         if (item.y > canvas.height || item.x > canvas.width + 150 || item.x < -item.width - 150) {
             items.splice(i, 1);
             let pointsGagnes = 1;
             if (item.type === "obstacle") {
                 if (item.sousType === "missile") pointsGagnes = 8;
                 else if (item.sousType === "satellite") pointsGagnes = 3;
-                else if (item.sousType === "avion") pointsGagnes = 2; 
+                else if (item.sousType === "avion") pointsGagnes = 3; // Augmenté car plus difficile à esquiver désormais
                 else pointsGagnes = 2;
             }
             score += pointsGagnes;
@@ -593,7 +594,6 @@ function draw() {
             if (item.sousType === "avion") {
                 if (assetsPrets.avion) {
                     ctx.save();
-                    // Miroir horizontal de l'image si l'avion vole vers la gauche
                     if (item.vx < 0) {
                         ctx.translate(item.x + item.width, item.y);
                         ctx.scale(-1, 1);
@@ -603,10 +603,9 @@ function draw() {
                     }
                     ctx.restore();
                 } else { 
-                    ctx.font = "35px Arial"; ctx.textAlign = "center"; 
-                    // Oriente l'émoji selon la direction du vol
+                    ctx.font = "40px Arial"; ctx.textAlign = "center"; 
                     let emojiAvion = item.vx > 0 ? "✈️" : "🛩️";
-                    ctx.fillText(emojiAvion, item.x + item.width/2, item.y + 25); 
+                    ctx.fillText(emojiAvion, item.x + item.width/2, item.y + 30); 
                 }
             } else if (item.sousType === "satellite") {
                 if (assetsPrets.satellite) ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height);
