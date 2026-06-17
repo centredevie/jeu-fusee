@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance</title>
+    <title>Montée en puissance - Débloqué</title>
     <style>
         * {
             box-sizing: border-box;
@@ -94,7 +94,7 @@
         }
         #jauge-fill {
             width: 100%;
-            height: 30%;
+            height: 50%;
             background: linear-gradient(to top, #f59e0b, #ef4444);
             transition: height 0.1s linear;
         }
@@ -244,13 +244,18 @@ let cameraY = 0;
 let loopSpaceY = 0;
 let atteintEspaceEnHaut = false;
 
-// File d'attente et suivi des transitions de phases
+// File d'attente de pattern
 let pileObjetsProgrammes = [];
-let anciennePhaseReelle = 1; 
 
 prechargerScores();
 gameLoop();
 scheduleNextSpawn();
+
+function prechargerScores() {
+    fetch(SCRIPT_URL).then(res => res.json()).then(data => { 
+        if(Array.isArray(data)) { topScoresLocaux = data; afficherLeTableau("", 0); }
+    }).catch(() => {});
+}
 
 function getProgressionFactor() {
     let currentMult = gameSpeed / 4.0;
@@ -261,20 +266,20 @@ function getProgressionFactor() {
 function scheduleNextSpawn() {
     if (gameOver) return;
 
-    let vActuelle = gameSpeed / 4.0;
+    let vActuelle = Math.max(1.0, gameSpeed / 4.0);
     
-    // RECALCUL DYNAMIQUE DU SPARK DE SPAWN : Plus le jeu va vite, plus les objets descendent vite,
-    // donc plus on réduit le délai de spawn pour maintenir une densité constante à l'écran.
+    // Garde-fou mathématique strict pour éviter le blocage (valeurs NaN ou < 0)
     let delaiBaseMin = 750;
     let delaiBaseMax = 1400;
 
-    // Ajustement de la fréquence en fonction stricte de la vitesse globale (divisé par la vitesse relative)
     let delaiMin = delaiBaseMin / Math.sqrt(vActuelle);
     let delaiMax = delaiBaseMax / Math.sqrt(vActuelle);
 
     let alpha = getProgressionFactor();
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
     
+    // Sécurisation absolue de l'horloge : jamais en dessous de 350ms pour préserver le CPU
+    tempsAttente = Math.max(350, tempsAttente);
     if (surchargeActive) tempsAttente *= 0.75; 
 
     setTimeout(() => {
@@ -293,13 +298,7 @@ function genererFluxStructure(vActuelle) {
     else if (vActuelle >= 2.6 && vActuelle < 3.5) phaseActuelle = 4;
     else phaseActuelle = 5;
 
-    if (anciennePhaseReelle === 2 && phaseActuelle === 3) {
-        pileObjetsProgrammes = [];
-    }
-    anciennePhaseReelle = phaseActuelle;
-
     if (pileObjetsProgrammes.length === 0) {
-        // EQUILIBRAGE FLUX GLOBAL : Remplacement des "vides" par une alternance stable de Boosters/Obstacles
         if (phaseActuelle === 1) {
             pileObjetsProgrammes = ["booster", "obstacle", "booster"];
         } else if (phaseActuelle === 2) {
@@ -313,7 +312,7 @@ function genererFluxStructure(vActuelle) {
         }
     }
 
-    let typeChoisi = pileObjetsProgrammes.shift();
+    let typeChoisi = pileObjetsProgrammes.shift() || "booster";
     triggerSpawn(typeChoisi, vActuelle, phaseActuelle);
 }
 
@@ -396,11 +395,7 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
     }
 
     let satellitesEnEcran = items.some(item => item.sousType === "satellite");
-    if (phaseActuelle === 3 && typeChoisi === "obstacle" && satellitesEnEcran) {
-        var decalageSecurite = 150;
-    } else {
-        var decalageSecurite = 0;
-    }
+    let decalageSecurite = (phaseActuelle === 3 && typeChoisi === "obstacle" && satellitesEnEcran) ? 150 : 0;
 
     items.push({
         x: Math.max(0, Math.min(canvas.width - itemWidth, xInitial)),
@@ -452,9 +447,8 @@ function update() {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    // RECALCUL CONTINU DU DRAIN : Courbe stable basée uniquement sur la vitesse
+    // Drain linéaire sécurisé
     let drainActuel = 4.0 + (vActuelle * 1.8); 
-    
     if (surchargeActive) {
         drainActuel = (6.0 + (vActuelle * 3.0)); 
     }
@@ -487,7 +481,6 @@ function update() {
                 item.allume = true;
                 let centreRocket = rocket.x + rocket.width / 2;
                 let centreItem = item.x + item.width / 2;
-                
                 let intensiteTracking = 0.02 + (alpha * 0.03);
                 item.vx = (centreRocket - centreItem) * intensiteTracking;
                 item.vx = Math.max(-4.5, Math.min(4.5, item.vx));
@@ -521,12 +514,10 @@ function update() {
 
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                // LA STRATEGIE DU SANS FAUTE : Rendement réduit. 
-                // Un seul pack ne suffit plus à combler un gros retard. Il faut TOUS les prendre.
                 let apportEnergie = 16; 
                 
-                // TRIGGER DU SUPERBOOST STRICT : Uniquement si la jauge flirte avec le 100% absolu (>= 99.5%)
-                if (energie >= 99.5 && !surchargeActive) {
+                // LE SANS FAUTE ABSOLU : Seuil calé à 99% pour absorber les micro-arrondis JavaScript
+                if (energie >= 99.0 && !surchargeActive) {
                     surchargeActive = true;
                     surchargeTimer = 210; 
                     jaugeFill.classList.add("surcharge");
@@ -606,7 +597,6 @@ function draw() {
         }
     });
 
-    // --- RENDU VISUEL DE LA FUSEE ---
     ctx.save();
     let centreX = rocket.x + rocket.width / 2;
 
@@ -614,7 +604,6 @@ function draw() {
         if (Math.floor(surchargeTimer / 4) % 2 === 0) {
             ctx.shadowBlur = 35;
             ctx.shadowColor = "#3b82f6";
-            
             ctx.beginPath();
             ctx.arc(centreX, rocket.y + rocket.height/2, Math.max(rocket.width, rocket.height)*0.62, 0, 2*Math.PI);
             ctx.strokeStyle = "#60a5fa";
