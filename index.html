@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance - Intensification</title>
+    <title>Montée en puissance - Trajectoires Fluides</title>
     <style>
         * {
             box-sizing: border-box;
@@ -273,10 +273,10 @@ function scheduleNextSpawn() {
     let vActuelle = Math.max(1.0, gameSpeed / 4.0);
     let alpha = getProgressionFactor();
     
-    // Intensification globale du timing d'apparition en phase intermédiaire
-    let reductionTransition = (vActuelle >= 2.9 && vActuelle <= 3.5) ? 180 : 0;
+    // Le temps d'attente s'adapte de manière fluide
+    let reductionTransition = (vActuelle >= 2.9 && vActuelle <= 3.5) ? 100 : 0;
     let tempsAttente = (1200 / Math.sqrt(vActuelle)) - (alpha * ((1200 - 650) / Math.sqrt(vActuelle))) - reductionTransition;
-    tempsAttente = Math.max(260, tempsAttente);
+    tempsAttente = Math.max(270, tempsAttente);
     
     if (surchargeActive) tempsAttente *= 0.75; 
     setTimeout(() => { genererFluxStructure(vActuelle); scheduleNextSpawn(); }, tempsAttente);
@@ -286,16 +286,15 @@ function genererFluxStructure(vActuelle) {
     if (gameOver) return;
     let phaseActuelle = 1;
     if (vActuelle < 1.3) phaseActuelle = 1; 
-    else if (vActuelle < 2.0) phaseActuelle = 2; // L'avion arrive désormais plus vite dès vActuelle >= 1.3
+    else if (vActuelle < 2.0) phaseActuelle = 2; 
     else if (vActuelle < 2.6) phaseActuelle = 3; 
-    else if (vActuelle < 3.5) phaseActuelle = 4; // Phase intermédiaire cible (2.9x - 3.5x)
+    else if (vActuelle < 3.5) phaseActuelle = 4; 
     else phaseActuelle = 5;
 
     if (pileObjetsProgrammes.length === 0) {
         if (phaseActuelle === 1) pileObjetsProgrammes = ["booster", "booster"]; 
         else if (phaseActuelle === 2) pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle"]);
         else if (phaseActuelle === 3) pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle", "obstacle"]);
-        // INTENSIFICATION PHASE 4 : Plus de météorites dans la boucle
         else if (phaseActuelle === 4) pileObjetsProgrammes = mélangerTableau(["obstacle", "booster", "obstacle", "obstacle", "booster", "obstacle"]);
         else pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle"]);
     }
@@ -323,13 +322,15 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
         } else if (phaseActuelle === 3) {
             sousType = "satellite"; const scale = 0.26; itemWidth = 530 * scale; itemHeight = 415 * scale; speedFactor = 0.35; vx = (Math.random() - 0.5) * 0.2; yInitial = -itemHeight;
         } else if (phaseActuelle === 4) {
-            // INTENSIFICATION DES MÉTÉORITES (Zone de stagnation 2.9x - 3.5x)
+            // PROGRESSION FLUIDE ET QUANTIFIÉE DES MÉTÉORITES
             sousType = "meteorite"; 
-            const scale = 0.14 + (Math.random() * 0.08); // Légèrement plus grosses
+            // Échelle indexée subtilement sur alpha (croissance douce)
+            const scale = (0.11 + (alpha * 0.05)) + (Math.random() * 0.05); 
             itemWidth = 435 * scale; 
             itemHeight = 410 * scale; 
-            speedFactor = 0.72 + (alpha * 0.15); 
-            vx = (Math.random() - 0.5) * (4.0 + alpha * 2.0); // Trajectoires diagonales beaucoup plus agressives
+            speedFactor = 0.70 + (alpha * 0.12); 
+            // Vitesse oblique indexée sur la progression (plus vicieuse au fil du temps)
+            vx = (Math.random() - 0.5) * (2.2 + alpha * 1.8); 
             yInitial = -itemHeight;
         } else {
             let fuséePresente = items.some(item => item.sousType === "missile");
@@ -399,9 +400,11 @@ function update() {
         item.y += gameSpeed * item.speedFactor;
         item.x += item.vx;
 
-        if (item.sousType !== "avion") { if (item.x < 0 || item.x + item.width > canvas.width) { item.vx = -item.vx; } }
+        // PARFAIT : Seuls les satellites ricochent sur les parois de l'écran maintenant !
+        if (item.sousType === "satellite") { 
+            if (item.x < 0 || item.x + item.width > canvas.width) { item.vx = -item.vx; } 
+        }
 
-        // AJUSTEMENT HITBOX : Un poil plus permissif sur l'avion (0.65) pour permettre les frôlements héroïques
         const scaleR = 0.65;
         let scaleI = (item.sousType === "satellite") ? 0.55 : (item.sousType === "missile") ? 0.60 : (item.sousType === "avion") ? 0.65 : 0.70; 
         
