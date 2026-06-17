@@ -271,23 +271,25 @@ function scheduleNextSpawn() {
     let vActuelle = gameSpeed / 4.0;
     let alpha = getProgressionFactor();
     
-    let delaiMin = 400; 
-    let delaiMax = 1000;
+    // CORRECTION DENSITÉ : Augmentation globale des délais d'attente pour aérer le jeu
+    let delaiMin = 500; 
+    let delaiMax = 1200;
 
     if (vActuelle < 1.2) {
-        delaiMin = 600; delaiMax = 1200;
+        delaiMin = 700; delaiMax = 1400;
     } else if (vActuelle >= 1.2 && vActuelle < 1.8) {
-        delaiMin = 700; delaiMax = 1300;
+        delaiMin = 800; delaiMax = 1500;
     } else if (vActuelle >= 1.8 && vActuelle < 2.6) {
-        delaiMin = 500; delaiMax = 1000;
+        // Phase 3 lissée (Transition calme post-satellite)
+        delaiMin = 650; delaiMax = 1300;
     } else if (vActuelle >= 2.6 && vActuelle < 3.5) {
-        delaiMin = 320; delaiMax = 650;
+        delaiMin = 450; delaiMax = 900;
     } else if (vActuelle >= 3.5) {
-        delaiMin = 350; delaiMax = 750;
+        delaiMin = 400; delaiMax = 850;
     }
 
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
-    if (surchargeActive) tempsAttente *= 0.65; 
+    if (surchargeActive) tempsAttente *= 0.75; // Le boost accélère un peu moins la cadence qu'avant
 
     setTimeout(() => {
         genererFluxStructure(vActuelle);
@@ -314,19 +316,21 @@ function genererFluxStructure(vActuelle) {
         if (phaseActuelle === 1) {
             pileObjetsProgrammes = ["booster", "booster"];
         } else if (phaseActuelle === 2) {
-            // AJUSTEMENT : Un seul booster par lot de 4 éléments pour raréfier leur présence
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
         } else if (phaseActuelle === 3) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
+            // CORRECTION FLUX : Injection de moments vides ("rien") pour lisser la transition post-satellite
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "rien", "obstacle"]);
         } else if (phaseActuelle === 4) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "rien", "obstacle"]);
         } else {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
         }
     }
 
     let typeChoisi = pileObjetsProgrammes.shift();
-    triggerSpawn(typeChoisi, vActuelle, phaseActuelle);
+    if (typeChoisi !== "rien") {
+        triggerSpawn(typeChoisi, vActuelle, phaseActuelle);
+    }
 }
 
 function mélangerTableau(arr) {
@@ -356,19 +360,35 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
             speedFactor = 0.32; 
             vx = (Math.random() - 0.5) * 0.2;
         } else if (phaseActuelle === 3) {
-            sousType = "meteorite";
-            const scale = 0.12 + (Math.random() * 0.08);
-            itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.60;
-            vx = (Math.random() - 0.5) * 1.5;
+            // CORRECTION EXTENSION : 15% de chance de voir apparaître un satellite au lieu d'une météorite
+            if (Math.random() < 0.15) {
+                sousType = "satellite";
+                const scale = 0.26;
+                itemWidth = 530 * scale; itemHeight = 415 * scale;
+                speedFactor = 0.35;
+            } else {
+                sousType = "meteorite";
+                const scale = 0.11 + (Math.random() * 0.07); // Légèrement plus petites
+                itemWidth = 435 * scale; itemHeight = 410 * scale;
+                speedFactor = 0.55;
+                vx = (Math.random() - 0.5) * 1.2;
+            }
         } else if (phaseActuelle === 4) {
-            sousType = "meteorite";
-            const scale = 0.11 + (Math.random() * 0.09);
-            itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.75 + (alpha * 0.2); 
-            vx = (Math.random() - 0.5) * (2.5 + alpha * 2.0); 
+            // CORRECTION EXTENSION : Garde de rares satellites si la vitesse globale est inférieure à 3.0x
+            if (vActuelle < 3.0 && Math.random() < 0.12) {
+                sousType = "satellite";
+                const scale = 0.26;
+                itemWidth = 530 * scale; itemHeight = 415 * scale;
+                speedFactor = 0.40;
+            } else {
+                sousType = "meteorite";
+                const scale = 0.11 + (Math.random() * 0.08);
+                itemWidth = 435 * scale; itemHeight = 410 * scale;
+                speedFactor = 0.70 + (alpha * 0.15); 
+                vx = (Math.random() - 0.5) * (2.0 + alpha * 1.5); 
+            }
         } else {
-            if (!fuséePresente && Math.random() < 0.40) {
+            if (!fuséePresente && Math.random() < 0.35) {
                 sousType = "missile"; 
                 const scale = 0.20; 
                 itemWidth = 170 * scale; itemHeight = 486 * scale;
@@ -378,10 +398,10 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
                 vx = (centreRocket - centreItem) * 0.004; 
             } else {
                 sousType = "meteorite";
-                const scale = 0.12 + (Math.random() * 0.07);
+                const scale = 0.11 + (Math.random() * 0.07);
                 itemWidth = 435 * scale; itemHeight = 410 * scale;
-                speedFactor = 0.85;
-                vx = (Math.random() - 0.5) * 4.0;
+                speedFactor = 0.80;
+                vx = (Math.random() - 0.5) * 3.5;
             }
         }
     } else {
@@ -422,7 +442,6 @@ function update() {
             surchargeActive = false;
             jaugeFill.classList.remove("surcharge");
             alertBox.style.display = "none";
-            // MODIFICATION : On retire l'attribution automatique à 45%. La barre reste là où elle a chuté pendant le boost !
         }
     }
 
@@ -448,15 +467,16 @@ function update() {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    if (!surchargeActive) {
-        let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
-        if (alpha < 0.15) drainActuel *= 0.5; 
-        energie -= drainActuel * (1/60);
-        if (energie <= 0) { energie = 0; declencherGameOver(); return; }
-        jaugeFill.style.height = energie + "%";
-    } else {
-        jaugeFill.style.height = "100%";
-    }
+    // CORRECTION SUPERBOOST : La jauge diminue désormais CONSTAMMENT, même si le booster est actif !
+    let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
+    if (alpha < 0.15) drainActuel *= 0.5; 
+    
+    // Si on est en surcharge, le drain est légèrement ralenti pour donner un petit avantage, mais reste actif
+    if (surchargeActive) drainActuel *= 0.75; 
+
+    energie -= drainActuel * (1/60);
+    if (energie <= 0) { energie = 0; declencherGameOver(); return; }
+    jaugeFill.style.height = energie + "%";
 
     let fuséePresente = items.some(item => item.sousType === "missile");
     if (surchargeActive) {
@@ -516,17 +536,19 @@ function update() {
 
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                let apportEnergie = 24 * (1.0 + alpha * 0.6);
+                let apportEnergie = 22 * (1.0 + alpha * 0.5);
                 
                 if ((energie + apportEnergie) >= energieMax && !surchargeActive) {
                     surchargeActive = true;
                     surchargeTimer = 210; 
                     jaugeFill.classList.add("surcharge");
                     score += 50; 
+                    energie = energieMax;
                 } else if (!surchargeActive) {
                     energie = Math.min(energieMax, energie + apportEnergie); 
                     score += 15;
                 } else {
+                    // Si déjà en superboost, on ajoute des points mais l'énergie continue de plafonner à l'instant T
                     score += 30; 
                 }
                 
@@ -564,7 +586,6 @@ function draw() {
         if (!atteintEspaceEnHaut) {
             ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + cameraY, canvas.width, hEcran);
         } else {
-            // RESTAURATION : Rendu original parfait du défilement infini de l'espace
             ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY, canvas.width, canvas.height);
             ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY - canvas.height, canvas.width, canvas.height);
         }
