@@ -234,9 +234,8 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie & Surcharge
-let energie = 50; // Plus confortable au décollage pour éviter la panne bête
+let energie = 60; // Plus de réserve au lancement
 const energieMax = 100;
-const drainInitial = 4.2; // Un poil plus doux tout au début
 let surchargeActive = false;
 let surchargeTimer = 0;
 
@@ -275,11 +274,11 @@ function scheduleNextSpawn() {
     let delaiMax = 1200;
 
     if (vActuelle < 1.2) {
-        delaiMin = 700; delaiMax = 1350;
+        delaiMin = 650; delaiMax = 1300;
     } else if (vActuelle >= 1.2 && vActuelle < 1.8) {
-        delaiMin = 750; delaiMax = 1400;
+        delaiMin = 700; delaiMax = 1350;
     } else if (vActuelle >= 1.8 && vActuelle < 2.6) {
-        delaiMin = 600; delaiMax = 1200;
+        delaiMin = 550; delaiMax = 1150; // Plus resserré pour injecter du carburant régulier
     } else if (vActuelle >= 2.6 && vActuelle < 3.5) {
         delaiMin = 450; delaiMax = 900;
     } else if (vActuelle >= 3.5) {
@@ -312,12 +311,12 @@ function genererFluxStructure(vActuelle) {
 
     if (pileObjetsProgrammes.length === 0) {
         if (phaseActuelle === 1) {
-            // RE-STABILISATION : Retour à un flux régulier pour maintenir la jauge en début de partie
             pileObjetsProgrammes = ["booster", "rien", "booster"];
         } else if (phaseActuelle === 2) {
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "rien", "obstacle"]);
         } else if (phaseActuelle === 3) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "rien", "obstacle"]);
+            // Un peu moins de vides (rien) pour garantir l'apparition des boosters nécessaires
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle"]);
         } else if (phaseActuelle === 4) {
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "rien", "obstacle"]);
         } else {
@@ -463,17 +462,12 @@ function update() {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    // ÉVOLUTION DU DRAIN : Doux au début, accélération progressive mais marquée après v=2.0
-    let drainActuel = drainInitial;
-    if (vActuelle < 2.2) {
-        drainActuel += (vActuelle - 1.0) * 3.5; // Progression douce au départ
-    } else {
-        drainActuel += 4.2 + (vActuelle - 2.2) * 9.0; // Accélération forte à haute vitesse
-    }
+    // RECALCUL LINÉAIRE DU DRAIN : Fini les paliers abrupts. Progression stable et fluide.
+    let drainActuel = 4.0 + (vActuelle * 2.0); 
     
     if (surchargeActive) {
-        // En superboost, le drain suit la même courbe pour vider la jauge si on va trop vite
-        drainActuel *= (0.60 + (alpha * 1.1)); 
+        // En superboost, l'énergie descend de manière proportionnelle à la vitesse finale
+        drainActuel = (6.0 + (vActuelle * 3.5)); 
     }
 
     energie -= drainActuel * (1/60);
@@ -538,10 +532,10 @@ function update() {
 
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                // Équilibrage de la valeur du pack d'énergie
-                let apportEnergie = 22; 
+                // AJUSTEMENT RENDEMENT : Un peu plus généreux pour compenser la vitesse moyenne
+                let apportEnergie = 26; 
                 
-                // NOUVEAU SEUIL DE TOLERANCE : On déclenche le mode si on est presque au max (>= 92%)
+                // Condition de Surcharge tolérante (92%)
                 if (energie >= 92.0 && !surchargeActive) {
                     surchargeActive = true;
                     surchargeTimer = 210; 
