@@ -5,166 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Montée en puissance</title>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-        }
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
         body {
-            margin: 0;
-            background: #0d1117;
-            color: white;
+            margin: 0; background: #0d1117; color: white;
             font-family: 'Segoe UI', Arial, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden;
         }
         #game-container {
-            position: relative;
-            width: 100%;
-            max-width: 450px;
-            height: 100vh;
-            max-height: 800px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
-            background: #0b0f19;
+            position: relative; width: 100%; max-width: 450px;
+            height: 100vh; max-height: 800px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8); background: #0b0f19;
         }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+        canvas { display: block; width: 100%; height: 100%; }
 
         /* UI HUD */
-        #ui-layer {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            pointer-events: none;
-            padding: 15px;
-        }
+        #ui-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; padding: 15px; }
         .hud-box {
-            position: absolute;
-            background: rgba(16, 24, 48, 0.85);
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 2px solid #3b82f6;
-            font-weight: bold;
-            font-size: 15px;
-            letter-spacing: 0.5px;
+            position: absolute; background: rgba(16, 24, 48, 0.85);
+            padding: 8px 12px; border-radius: 6px; border: 2px solid #3b82f6;
+            font-weight: bold; font-size: 15px;
         }
         #score-box { top: 15px; left: 15px; }
         #speed-box { top: 55px; left: 15px; }
         
-        /* Message d'alerte */
         #alert-box {
-            position: absolute;
-            top: 110px;
-            left: 15px;
-            right: 55px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 14px;
-            padding: 8px;
-            border-radius: 4px;
-            display: none;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
+            position: absolute; top: 110px; left: 15px; right: 55px;
+            text-align: center; font-weight: bold; font-size: 14px; padding: 8px;
+            border-radius: 4px; display: none; text-transform: uppercase; letter-spacing: 1.5px;
             animation: clignote 0.4s infinite alternate;
         }
-        .alert-surchargé { background: #3b82f6; border: 2px solid #60a5fa; color: white; box-shadow: 0 0 20px #3b82f6; }
-        .alert-boss { background: #ef4444; border: 2px solid #f87171; color: white; box-shadow: 0 0 20px #ef4444; }
+        .alert-surchargé { background: #3b82f6; border: 2px solid #60a5fa; box-shadow: 0 0 20px #3b82f6; }
+        .alert-boss { background: #ef4444; border: 2px solid #f87171; box-shadow: 0 0 20px #ef4444; }
 
-        @keyframes clignote {
-            from { opacity: 0.5; } to { opacity: 1; }
-        }
+        @keyframes clignote { from { opacity: 0.5; } to { opacity: 1; } }
 
         #jauge-container {
-            position: absolute;
-            right: 15px;
-            top: 100px;
-            width: 24px;
-            height: 250px;
-            background: rgba(16, 24, 48, 0.85);
-            border: 2px solid #f59e0b;
-            border-radius: 12px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column-reverse;
+            position: absolute; right: 15px; top: 100px; width: 24px; height: 250px;
+            background: rgba(16, 24, 48, 0.85); border: 2px solid #f59e0b; border-radius: 12px;
+            overflow: hidden; display: flex; flex-direction: column-reverse;
         }
         #jauge-fill {
-            width: 100%;
-            height: 30%;
-            background: linear-gradient(to top, #f59e0b, #ef4444);
-            transition: height 0.1s linear;
+            width: 100%; height: 30%; background: linear-gradient(to top, #f59e0b, #ef4444);
         }
         #jauge-fill.surcharge {
             background: linear-gradient(to top, #3b82f6, #ffffff) !important;
             animation: pulse-blue 0.1s infinite;
         }
-        @keyframes pulse-blue {
-            0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; }
-        }
-
+        @keyframes pulse-blue { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         #jauge-label {
-            position: absolute;
-            right: -55px;
-            top: 195px;
-            transform: rotate(-90deg);
-            font-size: 9px;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            color: #f59e0b;
+            position: absolute; right: -55px; top: 195px; transform: rotate(-90deg);
+            font-size: 9px; font-weight: bold; text-transform: uppercase; color: #f59e0b;
         }
 
-        /* Game Over */
         #game-over-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(10, 15, 30, 0.95);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            pointer-events: auto;
-            padding: 20px;
-            text-align: center;
-            z-index: 10;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 15, 30, 0.95); display: none;
+            flex-direction: column; align-items: center; justify-content: center; padding: 20px;
         }
         .btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 12px 28px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 20px;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            background: #3b82f6; color: white; border: none; padding: 12px 28px;
+            font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px;
         }
-        .leaderboard {
-            width: 100%;
-            max-width: 300px;
-            margin: 20px 0;
-            background: rgba(255,255,255,0.05);
-            border-radius: 6px;
-            padding: 10px;
-        }
-        .leaderboard-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
+        .leaderboard { width: 100%; max-width: 300px; margin: 20px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; }
+        .leaderboard-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
 
 <div id="game-container">
     <canvas id="gameCanvas"></canvas>
-
     <div id="ui-layer">
         <div id="score-box" class="hud-box">PUISSANCE: <span id="scoreText">0</span> ⚡</div>
         <div id="speed-box" class="hud-box">VITESSE: <span id="speedText">1.0x</span></div>
@@ -176,12 +86,10 @@
     </div>
 
     <div id="game-over-screen">
-        <h1 style="color: #ef4444; margin-bottom: 5px; letter-spacing: 1px;">FIN DE TRANSMISSION</h1>
-        <p id="final-score-text" style="font-size: 20px; margin-top: 5px;">Votre score : 0</p>
+        <h1 style="color: #ef4444; margin-bottom: 5px;">FIN DE TRANSMISSION</h1>
+        <p id="final-score-text" style="font-size: 20px;">Votre score : 0</p>
         <h3>🏆 TOP 5 DU WEEK-END</h3>
-        <div class="leaderboard" id="leaderboard-content">
-            <div class="leaderboard-row"><span>Chargement du classement...</span></div>
-        </div>
+        <div class="leaderboard" id="leaderboard-content"></div>
         <button class="btn" onclick="recommencer()">REDECOLLER</button>
     </div>
 </div>
@@ -191,357 +99,127 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-14uN1svuWyiSZN3yD
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = 450;
-canvas.height = 800;
+canvas.width = 450; canvas.height = 800;
 
-// --- ASSETS ---
-const imgFond = new Image(); imgFond.src = 'fond_decollage.png';
-const imgFusee = new Image(); imgFusee.src = 'fusee.png';
-const imgMeteorite = new Image(); imgMeteorite.src = 'meteorite.png';
-const imgBooster = new Image(); imgBooster.src = 'booster.png';
-const imgSatellite = new Image(); imgSatellite.src = 'satellite.png';
-const imgMissile = new Image(); imgMissile.src = 'missile.png';
-
-let assetsPrets = { fond: false, fusee: false, meteorite: false, booster: false, satellite: false, missile: false };
-imgFond.onload = () => assetsPrets.fond = true;
-imgMeteorite.onload = () => assetsPrets.meteorite = true;
-imgBooster.onload = () => assetsPrets.booster = true;
-imgSatellite.onload = () => assetsPrets.satellite = true;
-imgMissile.onload = () => assetsPrets.missile = true;
-
-const rocketBaseW = 60;
-const rocket = {
-    x: canvas.width / 2 - rocketBaseW / 2,
-    y: canvas.height - 220,
-    width: rocketBaseW,
-    height: rocketBaseW * 2.76,
-    targetX: canvas.width / 2 - rocketBaseW / 2
+// --- IMAGES ---
+const images = {
+    fond: new Image(), fusee: new Image(), meteorite: new Image(),
+    booster: new Image(), satellite: new Image(), missile: new Image()
 };
+images.fond.src = 'fond_decollage.png'; images.fusee.src = 'fusee.png';
+images.meteorite.src = 'meteorite.png'; images.booster.src = 'booster.png';
+images.satellite.src = 'satellite.png'; images.missile.src = 'missile.png';
 
-imgFusee.onload = () => { 
-    assetsPrets.fusee = true;
-    rocket.height = rocket.width * (imgFusee.naturalHeight / imgFusee.naturalWidth);
-    rocket.y = canvas.height - rocket.height - 40;
-};
-
-// --- PARAMÈTRES DE JEU ÉVOLUTIFS ---
-let score = 0;
-let baseSpeed = 4.0; 
-let gameSpeed = 4.0;
-let timeElapsed = 0;
-let gameOver = false;
-let items = [];
+// --- ETAT DU JEU ---
+let score = 0, gameSpeed = 4.0, timeElapsed = 0, gameOver = false, items = [];
+let energie = 30, surchargeActive = false, surchargeTimer = 0;
+let cameraY = 0, loopSpaceY = 0, atteintEspaceEnHaut = false;
 let topScoresLocaux = [];
+let dernierSpawnTime = 0;
 
-// Énergie & Surcharge
-let energie = 30; 
-const energieMax = 100;
-const drainInitial = 4.5; 
-let surchargeActive = false;
-let surchargeTimer = 0;
-
-// Scrolling background
-let cameraY = 0;
-let loopSpaceY = 0;
-let atteintEspaceEnHaut = false;
-
-// File d'attente programmée par vagues dynamiques
-let pileObjetsProgrammes = [];
+const rocket = { x: 195, y: 600, width: 60, height: 165, targetX: 195 };
+images.fusee.onload = () => { rocket.height = rocket.width * (images.fusee.naturalHeight / images.fusee.naturalWidth); rocket.y = canvas.height - rocket.height - 40; };
 
 prechargerScores();
-gameLoop();
-scheduleNextSpawn();
+requestAnimationFrame(gameLoop);
 
 function prechargerScores() {
-    fetch(SCRIPT_URL).then(res => res.json()).then(data => { 
-        if(Array.isArray(data)) { topScoresLocaux = data; afficherLeTableau("", 0); }
-    }).catch(() => {});
+    fetch(SCRIPT_URL).then(res => res.json()).then(data => { if(Array.isArray(data)) { topScoresLocaux = data; afficherLeTableau("", 0); } }).catch(() => {});
 }
 
-function getProgressionFactor() {
-    let currentMult = gameSpeed / 4.0;
-    let alpha = (currentMult - 1.0) / 3.0; 
-    return Math.max(0.0, Math.min(1.0, alpha));
-}
-
-function scheduleNextSpawn() {
+function update(timestamp) {
     if (gameOver) return;
 
-    let vActuelle = gameSpeed / 4.0;
-    let alpha = getProgressionFactor();
+    // 1. Évolution de la vitesse globale (Courbe fluide et continue)
+    timeElapsed++;
+    gameSpeed = 4.0 + Math.log(1 + timeElapsed * 0.001) * 5.8;
+    if (gameSpeed > 16.0) gameSpeed = 16.0;
     
-    // Délais de base (se resserrent au fil du temps)
-    let delaiMin = 400; 
-    let delaiMax = 1000;
+    let vActuelle = gameSpeed / 4.0;
+    document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    // Ajustement de la fréquence d'apparition selon les phases réelles
-    if (vActuelle < 1.2) {
-        // Phase 1 : Tranquille pour collecter les premiers boosts
-        delaiMin = 600; delaiMax = 1200;
-    } else if (vActuelle >= 2.6 && vActuelle < 3.5) {
-        // Phase 4 : Densification maximale des pierres
-        delaiMin = 320; delaiMax = 700;
-    } else if (vActuelle >= 3.5) {
-        // Phase 5 : Boss + Obstacles soutenus
-        delaiMin = 350; delaiMax = 750;
-    }
-
-    let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
-    if (surchargeActive) tempsAttente *= 0.65; // Hyper-vitesse du flux en Surcharge
-
-    setTimeout(() => {
-        genererFluxStructure(vActuelle);
-        scheduleNextSpawn();
-    }, tempsAttente);
-}
-
-function genererFluxStructure(vActuelle) {
-    if (gameOver) return;
-
-    // Gestion exclusive de la file d'attente selon les paliers de Vitesse demandés
-    if (pileObjetsProgrammes.length === 0) {
-        if (vActuelle < 1.2) {
-            // PHASE 1 : Booster uniquement
-            pileObjetsProgrammes = ["booster", "booster"];
-        } else if (vActuelle >= 1.2 && vActuelle < 1.8) {
-            // PHASE 2 : Satellites uniquement (+ boosters)
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
-        } else if (vActuelle >= 1.8 && vActuelle < 2.6) {
-            // PHASE 3 : Météorites uniquement, disparition des satellites
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
-        } else if (vActuelle >= 2.6 && vActuelle < 3.5) {
-            // PHASE 4 : Densification des météorites
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
-        } else {
-            // PHASE 5 : Arrivée du missile/Boss + météorites continues
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
-        }
-    }
-
-    let typeChoisi = pileObjetsProgrammes.shift();
-    triggerSpawn(typeChoisi, vActuelle);
-}
-
-function mélangerTableau(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-}
-
-function triggerSpawn(typeChoisi, vActuelle) {
-    let sousType = "satellite";
-    let itemWidth, itemHeight, speedFactor = 1.0;
-    let vx = 0;
-    let xInitial = Math.random() * (canvas.width - 80);
-    let alpha = getProgressionFactor();
-
-    let fuséePresente = items.some(item => item.sousType === "missile");
-
-    if (typeChoisi === "obstacle") {
-        if (vActuelle < 1.2) {
-            // Sécurité absolue Phase 1 : Théoriquement impossible d'avoir un obstacle ici, mais au cas où :
-            return; 
-        } else if (vActuelle >= 1.2 && vActuelle < 1.8) {
-            // PHASE 2 : Satellites uniquement
-            sousType = "satellite";
-            const scale = 0.26;
-            itemWidth = 530 * scale; itemHeight = 415 * scale;
-            speedFactor = 0.32; 
-            vx = (Math.random() - 0.5) * 0.2;
-        } else if (vActuelle >= 1.8 && vActuelle < 2.6) {
-            // PHASE 3 : Météorites uniquement (disparition complète des satellites)
-            sousType = "meteorite";
-            const scale = 0.12 + (Math.random() * 0.08);
-            itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.65;
-            vx = (Math.random() - 0.5) * 2.0;
-        } else if (vActuelle >= 2.6 && vActuelle < 3.5) {
-            // PHASE 4 : Densification et accélération des météorites
-            sousType = "meteorite";
-            const scale = 0.11 + (Math.random() * 0.09);
-            itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.75 + (alpha * 0.2); // Accélération mécanique des débris
-            vx = (Math.random() - 0.5) * (2.5 + alpha * 2.0); 
-        } else {
-            // PHASE 5 : Arrivée progressive des missiles (Un seul Boss Fusée à la fois sur l'écran)
-            if (!fuséePresente && Math.random() < 0.40) {
-                sousType = "missile"; 
-                const scale = 0.20; 
-                itemWidth = 170 * scale; itemHeight = 486 * scale;
-                speedFactor = 0.10; 
-                let centreRocket = rocket.x + rocket.width / 2;
-                let centreItem = xInitial + itemWidth / 2;
-                vx = (centreRocket - centreItem) * 0.004; 
-            } else {
-                // Reste du flux comblé par des météorites nerveuses
-                sousType = "meteorite";
-                const scale = 0.12 + (Math.random() * 0.07);
-                itemWidth = 435 * scale; itemHeight = 410 * scale;
-                speedFactor = 0.85;
-                vx = (Math.random() - 0.5) * 4.0;
-            }
-        }
-    } else {
-        // Logique de génération des Boosters (présents dans toutes les phases)
-        const scale = 0.24;
-        itemWidth = 500 * scale; itemHeight = 281 * scale;
-        speedFactor = 0.85;
-    }
-
-    items.push({
-        x: Math.max(0, Math.min(canvas.width - itemWidth, xInitial)),
-        y: -itemHeight,
-        width: itemWidth,
-        height: itemHeight,
-        type: typeChoisi,
-        sousType: sousType,
-        speedFactor: speedFactor,
-        vx: vx,
-        allume: false
-    });
-}
-
-function update() {
-    if (gameOver) return;
-
-    let alertBox = document.getElementById("alert-box");
+    // 2. Gestion Jauge & Surcharge
     let jaugeFill = document.getElementById("jauge-fill");
-
-    // Gestion du chronomètre de Surcharge (Invincibilité)
     if (surchargeActive) {
         surchargeTimer--;
         if (surchargeTimer <= 0) {
             surchargeActive = false;
             jaugeFill.classList.remove("surcharge");
-            alertBox.style.display = "none";
-            energie = 45; 
+            energie = 45;
         }
-    }
-
-    if (assetsPrets.fond && imgFond.naturalHeight > 0) {
-        let ratio = canvas.width / imgFond.naturalWidth;
-        let hEcran = imgFond.naturalHeight * ratio;
-        let seuil = hEcran - canvas.height;
-
-        let multiplicateurVisuel = surchargeActive ? 2.5 : 1.0;
-        if (!atteintEspaceEnHaut) {
-            cameraY += gameSpeed * 0.25 * multiplicateurVisuel;
-            if (cameraY >= seuil) { atteintEspaceEnHaut = true; loopSpaceY = 0; }
-        } else {
-            loopSpaceY = (loopSpaceY + gameSpeed * 0.25 * multiplicateurVisuel) % canvas.height;
-        }
-    }
-
-    timeElapsed += 1;
-    gameSpeed = baseSpeed + Math.log(1 + timeElapsed * 0.001) * 5.8;
-    if (gameSpeed > 16.0) gameSpeed = 16.0;
-
-    let alpha = getProgressionFactor();
-    let vActuelle = gameSpeed / 4.0;
-    document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
-
-    if (!surchargeActive) {
-        let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
-        if (alpha < 0.15) drainActuel *= 0.5; 
-        energie -= drainActuel * (1/60);
-        if (energie <= 0) { energie = 0; declencherGameOver(); return; }
-        jaugeFill.style.height = energie + "%";
     } else {
-        jaugeFill.style.height = "100%";
+        energie -= (4.5 * (1.0 + (vActuelle - 1.0) * 0.4)) * (1/60);
+        if (energie <= 0) { declencherGameOver(); return; }
+        jaugeFill.style.height = energie + "%";
     }
 
-    // Gestion des affichages d'alertes UI
-    let fuséePresente = items.some(item => item.sousType === "missile");
+    // 3. Gestion des alertes UI
+    let alertBox = document.getElementById("alert-box");
+    let missilePresent = items.some(item => item.sousType === "missile");
     if (surchargeActive) {
-        alertBox.innerText = "⚡ BOOSTER ACTIF ⚡"; // Mis à jour selon ta demande
-        alertBox.className = "alert-surchargé";
-        alertBox.style.display = "block";
-    } else if (vActuelle >= 3.5 && fuséePresente) {
-        alertBox.innerText = "🚨 ALERTE FUSEE 🚨";
-        alertBox.className = "alert-boss";
-        alertBox.style.display = "block";
+        alertBox.innerText = "⚡ BOOSTER ACTIF ⚡"; alertBox.className = "alert-surchargé"; alertBox.style.display = "block";
+    } else if (vActuelle >= 3.5 && missilePresent) {
+        alertBox.innerText = "🚨 ALERTE FUSEE 🚨"; alertBox.className = "alert-boss"; alertBox.style.display = "block";
     } else {
         alertBox.style.display = "none";
     }
 
-    let vitesseReponse = surchargeActive ? 0.45 : 0.22;
-    rocket.x += (rocket.targetX - rocket.x) * vitesseReponse;
+    // 4. Mouvement joueur
+    rocket.x += (rocket.targetX - rocket.x) * (surchargeActive ? 0.45 : 0.22);
 
+    // 5. Moteur de génération (Spawn) optimisé sans file d'attente lourde
+    let phaseActive = 1;
+    if (vActuelle >= 1.2 && vActuelle < 1.8) phaseActive = 2;
+    else if (vActuelle >= 1.8 && vActuelle < 2.6) phaseActive = 3;
+    else if (vActuelle >= 2.6 && vActuelle < 3.5) phaseActive = 4;
+    else if (vActuelle >= 3.5) phaseActive = 5;
+
+    let delaiSpawn = Math.max(350, 1100 - (vActuelle * 180));
+    if (surchargeActive) delaiSpawn *= 0.65;
+
+    if (timestamp - dernierSpawnTime > delaiSpawn) {
+        tenterSpawnObjet(phaseActive, vActuelle);
+        dernierSpawnTime = timestamp;
+    }
+
+    // 6. Mise à jour des objets et collisions
     for (let i = items.length - 1; i >= 0; i--) {
-        const item = items[i];
+        let item = items[i];
         
+        // Comportement Missile autoguidé
         if (item.sousType === "missile") {
-            if (item.y > 100 && !item.allume) {
-                item.allume = true;
-                let centreRocket = rocket.x + rocket.width / 2;
-                let centreItem = item.x + item.width / 2;
-                
-                let intensiteTracking = 0.02 + (alpha * 0.03);
-                item.vx = (centreRocket - centreItem) * intensiteTracking;
-                item.vx = Math.max(-4.5, Math.min(4.5, item.vx));
-            }
+            if (item.y > 100 && !item.allume) item.allume = true;
             if (item.allume) {
-                let accelerationFusee = 0.03 + (alpha * 0.03);
-                let maxVitesseMissile = 1.10 + (alpha * 0.35); 
-                item.speedFactor = Math.min(maxVitesseMissile, item.speedFactor + accelerationFusee);
+                item.vx = ((rocket.x + rocket.width/2) - (item.x + item.width/2)) * 0.03;
+                item.speedFactor = Math.min(1.4, item.speedFactor + 0.04);
             }
         }
 
         item.y += gameSpeed * item.speedFactor;
         item.x += item.vx;
+        if (item.x < 0 || item.x + item.width > canvas.width) item.vx = -item.vx;
 
-        if (item.x < 0 || item.x + item.width > canvas.width) {
-            item.vx = -item.vx;
-        }
+        // Hitbox prévisibles et ajustées (65% joueur, 60% obstacles)
+        let rx = rocket.x + rocket.width * 0.17, ry = rocket.y + rocket.height * 0.17;
+        let rw = rocket.width * 0.65, rh = rocket.height * 0.65;
+        let ix = item.x + item.width * 0.2, iy = item.y + item.height * 0.2;
+        let iw = item.width * 0.6, ih = item.height * 0.6;
 
-        const scaleR = 0.65;
-        const scaleI = item.sousType === "satellite" ? 0.55 : (item.sousType === "missile" ? 0.60 : 0.70);
-
-        const rx = rocket.x + rocket.width * (1 - scaleR) / 2;
-        const ry = rocket.y + rocket.height * (1 - scaleR) / 2;
-        const rw = rocket.width * scaleR;
-        const rh = rocket.height * scaleR;
-
-        const ix = item.x + item.width * (1 - scaleI) / 2;
-        const iy = item.y + item.height * (1 - scaleI) / 2;
-        const iw = item.width * scaleI;
-        const ih = item.height * scaleI;
-
-        // Détection des collisions
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                let apportEnergie = 24 * (1.0 + alpha * 0.6);
-                
-                // Déclenchement précis et visuel du mode Surcharge
-                if ((energie + apportEnergie) >= energieMax && !surchargeActive) {
-                    surchargeActive = true;
-                    surchargeTimer = 210; // 3.5 secondes (60 fps)
-                    jaugeFill.classList.add("surcharge");
-                    score += 50; 
+                let gain = 24 * (1.0 + (vActuelle - 1.0) * 0.2);
+                if (energie + gain >= 100 && !surchargeActive) {
+                    surchargeActive = true; surchargeTimer = 210; jaugeFill.classList.add("surcharge"); score += 50;
                 } else if (!surchargeActive) {
-                    energie = Math.min(energieMax, energie + apportEnergie); 
-                    score += 15;
-                } else {
-                    score += 30; // Cumul pendant le mode invincibilité
-                }
-                
+                    energie = Math.min(100, energie + gain); score += 15;
+                } else { score += 30; }
                 items.splice(i, 1);
-                document.getElementById("scoreText").innerText = score;
-                continue;
             } else {
-                // Effet invincibilité réel : éclatement destructif des obstacles normaux
-                if (surchargeActive) {
-                    items.splice(i, 1); 
-                    score += 10; 
-                    document.getElementById("scoreText").innerText = score;
-                    continue;
-                } else {
-                    declencherGameOver();
-                    return;
-                }
+                if (surchargeActive) { items.splice(i, 1); score += 10; } // Destruction d'obstacle en Surcharge
+                else { declencherGameOver(); return; }
             }
+            document.getElementById("scoreText").innerText = score;
+            continue;
         }
 
         if (item.y > canvas.height) {
@@ -550,80 +228,101 @@ function update() {
             document.getElementById("scoreText").innerText = score;
         }
     }
+
+    // Background Scrolling
+    if (images.fond.naturalHeight > 0) {
+        let ratio = canvas.width / images.fond.naturalWidth;
+        let hEcran = images.fond.naturalHeight * ratio;
+        let mult = surchargeActive ? 2.5 : 1.0;
+        if (!atteintEspaceEnHaut) {
+            cameraY += gameSpeed * 0.25 * mult;
+            if (cameraY >= hEcran - canvas.height) atteintEspaceEnHaut = true;
+        } else {
+            loopSpaceY = (loopSpaceY + gameSpeed * 0.25 * mult) % canvas.height;
+        }
+    }
+}
+
+function tenterSpawnObjet(phase, vActuelle) {
+    let type = (Math.random() < 0.28) ? "booster" : "obstacle";
+    let sousType = "meteorite", w = 40, h = 40, speedF = 0.7, vx = 0;
+
+    // Sécurité anti-télescopage : Ne pas spawner de météorites s'il reste des satellites de la phase 2
+    let resteDesSatellites = items.some(it => it.sousType === "satellite");
+
+    if (type === "obstacle") {
+        switch(phase) {
+            case 1: return; // Pas d'obstacle en phase 1
+            case 2:
+                sousType = "satellite"; w = 137; h = 107; speedF = 0.32; vx = (Math.random() - 0.5) * 0.2;
+                break;
+            case 3:
+                if (resteDesSatellites) return; // Attente passive de l'évacuation des satellites
+                sousType = "meteorite"; w = 50; h = 47; speedF = 0.6; vx = (Math.random() - 0.5) * 1.5;
+                break;
+            case 4:
+                sousType = "meteorite"; w = 48; h = 45; speedF = 0.8; vx = (Math.random() - 0.5) * 3.5;
+                break;
+            case 5:
+                let bossExiste = items.some(it => it.sousType === "missile");
+                if (!bossExiste && Math.random() < 0.35) {
+                    sousType = "missile"; w = 34; h = 97; speedF = 0.1;
+                } else {
+                    sousType = "meteorite"; w = 46; h = 43; speedF = 0.9; vx = (Math.random() - 0.5) * 4.5;
+                }
+                break;
+        }
+    } else { // Configuration du Booster libre
+        w = 120 * 0.24; h = 67; speedF = 0.85;
+    }
+
+    items.push({
+        x: Math.random() * (canvas.width - w), y: -h,
+        width: w, height: h, type: type, sousType: sousType, speedFactor: speedF, vx: vx, allume: false
+    });
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (assetsPrets.fond && imgFond.naturalHeight > 0) {
-        let ratio = canvas.width / imgFond.naturalWidth;
-        let hEcran = imgFond.naturalHeight * ratio;
-
+    // Dessin Fond
+    if (images.fond.naturalHeight > 0) {
+        let ratio = canvas.width / images.fond.naturalWidth;
+        let hEcran = images.fond.naturalHeight * ratio;
         if (!atteintEspaceEnHaut) {
-            ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + cameraY, canvas.width, hEcran);
+            ctx.drawImage(images.fond, 0, - (hEcran - canvas.height) + cameraY, canvas.width, hEcran);
         } else {
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY, canvas.width, canvas.height);
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY - canvas.height, canvas.width, canvas.height);
+            ctx.drawImage(images.fond, 0, loopSpaceY, canvas.width, canvas.height);
+            ctx.drawImage(images.fond, 0, loopSpaceY - canvas.height, canvas.width, canvas.height);
         }
-    } else {
-        ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    // Dessin Éléments
     items.forEach(item => {
         if (item.type === "obstacle") {
-            if (item.sousType === "satellite") {
-                if (assetsPrets.satellite) ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height);
-                else { ctx.font = "50px Arial"; ctx.textAlign = "center"; ctx.fillText("🛰️", item.x + item.width/2, item.y + 35); }
-            } else if (item.sousType === "missile") { 
-                if (assetsPrets.missile) {
-                    ctx.save();
-                    ctx.translate(item.x + item.width / 2, item.y + item.height / 2);
-                    ctx.rotate(-Math.atan2(item.vx, gameSpeed * item.speedFactor));
-                    ctx.drawImage(imgMissile, -item.width / 2, -item.height / 2, item.width, item.height);
-                    ctx.restore();
-                } else { 
-                    ctx.font = "48px Arial"; ctx.textAlign = "center"; 
-                    ctx.fillText(item.allume ? "🔥🚀" : "🚨🚀", item.x + item.width/2, item.y + 35); 
-                }
-            } else {
-                if (assetsPrets.meteorite) ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height);
-                else { ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.fillText("☄️", item.x + item.width/2, item.y + 30); }
+            if (item.sousType === "satellite") ctx.drawImage(images.satellite, item.x, item.y, item.width, item.height);
+            else if (item.sousType === "meteorite") ctx.drawImage(images.meteorite, item.x, item.y, item.width, item.height);
+            else if (item.sousType === "missile") {
+                ctx.save(); ctx.translate(item.x + item.width/2, item.y + item.height/2);
+                ctx.rotate(-Math.atan2(item.vx, gameSpeed * item.speedFactor));
+                ctx.drawImage(images.missile, -item.width/2, -item.height/2, item.width, item.height); ctx.restore();
             }
-        } else {
-            if (assetsPrets.booster) ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height);
-            else { ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("🔋", item.x + item.width/2, item.y + 25); }
-        }
+        } else ctx.drawImage(images.booster, item.x, item.y, item.width, item.height);
     });
 
-    // --- RENDU VISUEL DE LA FUSEE AVEC DISPOSITIF DE SURCHARGE ---
+    // Dessin Fusée + Bouclier quantique propre
     ctx.save();
-    let centreX = rocket.x + rocket.width / 2;
-
-    if (surchargeActive) {
-        if (Math.floor(surchargeTimer / 4) % 2 === 0) {
-            // Effet stroboscopique néon bleu très prononcé
-            ctx.shadowBlur = 35;
-            ctx.shadowColor = "#3b82f6";
-            
-            ctx.beginPath();
-            ctx.arc(centreX, rocket.y + rocket.height/2, Math.max(rocket.width, rocket.height)*0.62, 0, 2*Math.PI);
-            ctx.strokeStyle = "#60a5fa";
-            ctx.lineWidth = 4;
-            ctx.stroke();
-        }
+    if (surchargeActive && Math.floor(surchargeTimer / 4) % 2 === 0) {
+        ctx.shadowBlur = 30; ctx.shadowColor = "#3b82f6";
+        ctx.beginPath(); ctx.arc(rocket.x + rocket.width/2, rocket.y + rocket.height/2, rocket.height*0.55, 0, 2*Math.PI);
+        ctx.strokeStyle = "#60a5fa"; ctx.lineWidth = 3; ctx.stroke();
     }
-
-    if (assetsPrets.fusee) {
-        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-    } else {
-        ctx.font = "52px Arial"; ctx.textAlign = "center"; 
-        ctx.fillText(surchargeActive ? "⚡🚀⚡" : "🚀", centreX, rocket.y + 45);
-    }
+    ctx.drawImage(images.fusee, rocket.x, rocket.y, rocket.width, rocket.height);
     ctx.restore();
 }
 
-function gameLoop() {
-    update();
+function gameLoop(timestamp) {
+    update(timestamp);
     draw();
     if (!gameOver) requestAnimationFrame(gameLoop);
 }
@@ -634,32 +333,20 @@ function declencherGameOver() {
     document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
     document.getElementById("game-over-screen").style.display = "flex";
     
-    let pseudo = prompt("Entrez votre pseudo pour le classement :");
-    if (!pseudo || pseudo.trim() === "") pseudo = "Pilote Anonyme";
-
-    topScoresLocaux.push({ pseudo: pseudo, score: score });
+    let pseudo = prompt("Entrez votre pseudo pour le classement :") || "Pilote Anonyme";
+    topScoresLocaux.push({ pseudo: pseudo.trim(), score: score });
     topScoresLocaux.sort((a, b) => b.score - a.score);
     afficherLeTableau(pseudo, score);
 
-    fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pseudo: pseudo, score: score })
-    }).catch(() => {});
+    fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pseudo: pseudo, score: score }) }).catch(() => {});
 }
 
 function afficherLeTableau(monPseudo, monScore) {
-    let html = "";
-    if(topScoresLocaux.length === 0) {
-        html = '<div class="leaderboard-row"><span>Aucun enregistrement local.</span></div>';
-    } else {
-        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
-            let clr = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
-            html += `<div class="leaderboard-row" ${clr}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
-        });
-    }
-    document.getElementById("leaderboard-content").innerHTML = html;
+    let html = topScoresLocaux.slice(0, 5).map((j, i) => {
+        let clr = j.pseudo === monPseudo && j.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
+        return `<div class="leaderboard-row" ${clr}><span>${i+1}. ${j.pseudo}</span><span>${j.score} ⚡</span></div>`;
+    }).join("");
+    document.getElementById("leaderboard-content").innerHTML = html || '<div class="leaderboard-row"><span>Aucun score</span></div>';
 }
 
 function recommencer() { document.location.reload(); }
@@ -669,7 +356,6 @@ function piloter(clientX) {
     let ratioX = canvas.width / rect.width;
     rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * ratioX) - rocket.width / 2));
 }
-
 window.addEventListener("mousemove", (e) => piloter(e.clientX));
 window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
 </script>
