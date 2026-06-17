@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Orbite Critique - Surcharge Visuelle</title>
+    <title>Orbite Critique - Corrections Maîtresses</title>
     <style>
         * {
             box-sizing: border-box;
@@ -72,8 +72,8 @@
             letter-spacing: 1.5px;
             animation: clignote 0.4s infinite alternate;
         }
-        .alert-surchargé { background: rgba(59, 130, 246, 0.95); border: 2px solid #60a5fa; color: white; box-shadow: 0 0 15px #3b82f6; }
-        .alert-boss { background: rgba(239, 68, 68, 0.95); border: 2px solid #f87171; color: white; box-shadow: 0 0 15px #ef4444; }
+        .alert-surchargé { background: #3b82f6; border: 2px solid #60a5fa; color: white; box-shadow: 0 0 20px #3b82f6; }
+        .alert-boss { background: #ef4444; border: 2px solid #f87171; color: white; box-shadow: 0 0 20px #ef4444; }
 
         @keyframes clignote {
             from { opacity: 0.5; } to { opacity: 1; }
@@ -96,14 +96,14 @@
             width: 100%;
             height: 30%;
             background: linear-gradient(to top, #f59e0b, #ef4444);
-            transition: height 0.1s linear, background 0.2s;
+            transition: height 0.1s linear;
         }
         #jauge-fill.surcharge {
-            background: linear-gradient(to top, #3b82f6, #60a5fa, #ffffff) !important;
-            animation: pulse-blue 0.2s infinite;
+            background: linear-gradient(to top, #3b82f6, #ffffff) !important;
+            animation: pulse-blue 0.1s infinite;
         }
         @keyframes pulse-blue {
-            0% { filter: brightness(1); } 50% { filter: brightness(1.4); } 100% { filter: brightness(1); }
+            0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; }
         }
 
         #jauge-label {
@@ -260,6 +260,7 @@ function prechargerScores() {
 
 function getProgressionFactor() {
     let currentMult = gameSpeed / 4.0;
+    // Calcule la progression entre 1.0x et 4.0x de vitesse relative
     let alpha = (currentMult - 1.0) / 3.0; 
     return Math.max(0.0, Math.min(1.0, alpha));
 }
@@ -267,36 +268,44 @@ function getProgressionFactor() {
 function scheduleNextSpawn() {
     if (gameOver) return;
 
+    let vActuelle = gameSpeed / 4.0;
     let alpha = getProgressionFactor();
-    let delaiMin = 450; 
-    let delaiMax = 1300;
+    
+    // CORRECTION 2 : Densification globale du flux de débris (1300ms max réduit à 950ms)
+    let delaiMin = 380; 
+    let delaiMax = 950;
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
 
-    if (surchargeActive) tempsAttente *= 0.75;
+    if (surchargeActive) tempsAttente *= 0.65; // Flux encore plus compact en surcharge
 
     setTimeout(() => {
-        genererFluxStructure(alpha);
+        genererFluxStructure(vActuelle, alpha);
         scheduleNextSpawn();
     }, tempsAttente);
 }
 
-function genererFluxStructure(alpha) {
+function genererFluxStructure(vActuelle, alpha) {
     if (gameOver) return;
 
     if (pileObjetsProgrammes.length === 0) {
-        if (alpha < 0.15) {
-            pileObjetsProgrammes = ["booster", "booster", "booster"];
-        } else if (alpha >= 0.15 && alpha < 0.45) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle"]);
-        } else if (alpha >= 0.45 && alpha < 0.80) {
+        // CORRECTION 1 & 2 : Structuration stricte par paliers de vitesse réelle
+        if (vActuelle < 1.5) {
+            // Palier 1 : Uniquement satellites de test et boosters obligatoires
+            pileObjetsProgrammes = ["booster", "obstacle", "booster"];
+        } else if (vActuelle >= 1.5 && vActuelle < 2.5) {
+            // Palier 2 : Transition et densification des météorites
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
-        } else {
+        } else if (vActuelle >= 2.5 && vActuelle < 3.5) {
+            // Palier 3 : Pluie de météorites dense
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
+        } else {
+            // Palier final : Tapis de météorites extrême + Boss programmé
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle", "obstacle"]);
         }
     }
 
     let typeChoisi = pileObjetsProgrammes.shift();
-    triggerSpawn(typeChoisi, alpha);
+    triggerSpawn(typeChoisi, vActuelle, alpha);
 }
 
 function mélangerTableau(arr) {
@@ -307,8 +316,7 @@ function mélangerTableau(arr) {
     return arr;
 }
 
-function triggerSpawn(typeChoisi, alpha) {
-    let vActuelle = gameSpeed / 4.0; 
+function triggerSpawn(typeChoisi, vActuelle, alpha) {
     let sousType = "satellite";
     let itemWidth, itemHeight, speedFactor = 1.0;
     let vx = 0;
@@ -317,41 +325,52 @@ function triggerSpawn(typeChoisi, alpha) {
     let fuséePresente = items.some(item => item.sousType === "missile");
 
     if (typeChoisi === "obstacle") {
-        let r = Math.random();
-        
-        let poidsSatellite = Math.max(0, 1.0 - (alpha * 1.5)); 
-        let poidsMeteorite = 1.0 - poidsSatellite;
-        let poidsMissile = 0;
-
-        if (vActuelle >= 3.5 && !fuséePresente) {
-            poidsMissile = 0.25; 
-            poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile);
-        }
-
-        let totalPoids = poidsSatellite + poidsMeteorite + poidsMissile;
-        let tirage = r * totalPoids;
-
-        if (tirage < poidsSatellite) {
+        // CORRECTION 1 : Si vitesse < 1.5x, c'est obligatoirement un satellite
+        if (vActuelle < 1.5) {
             sousType = "satellite";
             const scale = 0.26;
             itemWidth = 530 * scale; itemHeight = 415 * scale;
             speedFactor = 0.30; 
             vx = (Math.random() - 0.5) * 0.2;
-        } else if (tirage < poidsSatellite + poidsMeteorite) {
-            sousType = "meteorite";
-            const scale = 0.12 + (Math.random() * 0.08);
-            itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.60 + (alpha * 0.45);
-            vx = (Math.random() - 0.5) * (1.5 + alpha * 2.5); 
         } else {
-            sousType = "missile"; 
-            const scale = 0.20; 
-            itemWidth = 170 * scale; itemHeight = 486 * scale;
-            
-            speedFactor = 0.08 + (alpha * 0.08); 
-            let centreRocket = rocket.x + rocket.width / 2;
-            let centreItem = xInitial + itemWidth / 2;
-            vx = (centreRocket - centreItem) * 0.004; 
+            let r = Math.random();
+            // Disparition progressive des satellites au profit des météorites
+            let poidsSatellite = Math.max(0, 1.0 - ((vActuelle - 1.5) * 1.5)); 
+            let poidsMeteorite = 1.0 - poidsSatellite;
+            let poidsMissile = 0;
+
+            // Arrivée du Boss Fusée unique au-dessus de 3.5x
+            if (vActuelle >= 3.5 && !fuséePresente) {
+                poidsMissile = 0.35; 
+                poidsMeteorite = Math.max(0, poidsMeteorite - poidsMissile);
+            }
+
+            let totalPoids = poidsSatellite + poidsMeteorite + poidsMissile;
+            let tirage = r * totalPoids;
+
+            if (tirage < poidsSatellite) {
+                sousType = "satellite";
+                const scale = 0.26;
+                itemWidth = 530 * scale; itemHeight = 415 * scale;
+                speedFactor = 0.30; 
+                vx = (Math.random() - 0.5) * 0.2;
+            } else if (tirage < poidsSatellite + poidsMeteorite) {
+                sousType = "meteorite";
+                const scale = 0.12 + (Math.random() * 0.08);
+                itemWidth = 435 * scale; itemHeight = 410 * scale;
+                
+                // CORRECTION 2 : Météorites plus rapides et plus nerveuses latéralement
+                speedFactor = 0.65 + (alpha * 0.55);
+                vx = (Math.random() - 0.5) * (2.0 + alpha * 3.0); 
+            } else {
+                sousType = "missile"; 
+                const scale = 0.20; 
+                itemWidth = 170 * scale; itemHeight = 486 * scale;
+                speedFactor = 0.08 + (alpha * 0.08); 
+                let centreRocket = rocket.x + rocket.width / 2;
+                let centreItem = xInitial + itemWidth / 2;
+                vx = (centreRocket - centreItem) * 0.004; 
+            }
         }
     } else {
         const scale = 0.24;
@@ -378,13 +397,14 @@ function update() {
     let alertBox = document.getElementById("alert-box");
     let jaugeFill = document.getElementById("jauge-fill");
 
+    // CORRECTION 3 : Gestion rigoureuse du chronomètre de Surcharge
     if (surchargeActive) {
         surchargeTimer--;
         if (surchargeTimer <= 0) {
             surchargeActive = false;
             jaugeFill.classList.remove("surcharge");
             alertBox.style.display = "none";
-            energie = 50; 
+            energie = 45; // Relance la jauge à 45% après expiration
         }
     }
 
@@ -393,7 +413,7 @@ function update() {
         let hEcran = imgFond.naturalHeight * ratio;
         let seuil = hEcran - canvas.height;
 
-        let multiplicateurVisuel = surchargeActive ? 2.0 : 1.0;
+        let multiplicateurVisuel = surchargeActive ? 2.5 : 1.0;
         if (!atteintEspaceEnHaut) {
             cameraY += gameSpeed * 0.25 * multiplicateurVisuel;
             if (cameraY >= seuil) { atteintEspaceEnHaut = true; loopSpaceY = 0; }
@@ -407,7 +427,8 @@ function update() {
     if (gameSpeed > 16.0) gameSpeed = 16.0;
 
     let alpha = getProgressionFactor();
-    document.getElementById("speedText").innerText = (gameSpeed / 4.0).toFixed(1) + "x";
+    let vActuelle = gameSpeed / 4.0;
+    document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
     if (!surchargeActive) {
         let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
@@ -419,22 +440,21 @@ function update() {
         jaugeFill.style.height = "100%";
     }
 
-    // MODIFICATION : Ajustement des textes d'alertes ("ALERTE FUSEE")
-    let vActuelle = gameSpeed / 4.0;
+    // Gestion des affichages d'alertes HTML
     let fuséePresente = items.some(item => item.sousType === "missile");
     if (surchargeActive) {
         alertBox.innerText = "⚡ SURCHARGE QUANTIQUE ⚡";
         alertBox.className = "alert-surchargé";
         alertBox.style.display = "block";
     } else if (vActuelle >= 3.5 && fuséePresente) {
-        alertBox.innerText = "🚨 ALERTE FUSEE 🚨"; // Modifié selon ta demande
+        alertBox.innerText = "🚨 ALERTE FUSEE 🚨";
         alertBox.className = "alert-boss";
         alertBox.style.display = "block";
     } else {
         alertBox.style.display = "none";
     }
 
-    let vitesseReponse = surchargeActive ? 0.40 : 0.22;
+    let vitesseReponse = surchargeActive ? 0.45 : 0.22;
     rocket.x += (rocket.targetX - rocket.x) * vitesseReponse;
 
     for (let i = items.length - 1; i >= 0; i--) {
@@ -477,28 +497,32 @@ function update() {
         const iw = item.width * scaleI;
         const ih = item.height * scaleI;
 
+        // Détection fine des collisions
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                if (energie >= 100 && !surchargeActive) {
+                let apportEnergie = 24 * (1.0 + alpha * 0.6);
+                
+                // CORRECTION 3 : Déclenchement de la Surcharge AVANT de brider l'énergie à 100%
+                if ((energie + apportEnergie) >= energieMax && !surchargeActive) {
                     surchargeActive = true;
-                    surchargeTimer = 210; 
+                    surchargeTimer = 210; // 3.5 secondes à 60 FPS
                     jaugeFill.classList.add("surcharge");
                     score += 50; 
                 } else if (!surchargeActive) {
-                    let apportEnergie = 24 * (1.0 + alpha * 0.6);
                     energie = Math.min(energieMax, energie + apportEnergie); 
                     score += 15;
                 } else {
-                    score += 30;
+                    score += 30; // Points bonus si cumul en cours de surcharge
                 }
                 
                 items.splice(i, 1);
                 document.getElementById("scoreText").innerText = score;
                 continue;
             } else {
+                // CORRECTION 3 : Gestion de l'invincibilité réelle en mode Surcharge
                 if (surchargeActive) {
-                    items.splice(i, 1);
-                    score += 10;
+                    items.splice(i, 1); // L'obstacle est pulvérisé
+                    score += 10; // Bonus d'écrasement
                     document.getElementById("scoreText").innerText = score;
                     continue;
                 } else {
@@ -559,42 +583,30 @@ function draw() {
         }
     });
 
-    // --- RENDU VISUEL DE LA SURCHARGE (BOOST MAX) ---
+    // --- RENDU VISUEL DE LA FUSEE (AVEC COMPORTEMENT DE SURCHARGE ALTERNÉ) ---
     ctx.save();
     let centreX = rocket.x + rocket.width / 2;
-    let centreY = rocket.y + rocket.height / 2;
 
+    // CORRECTION 3 : Clignotement électrique franc de la fusée
     if (surchargeActive) {
-        // 1. Dessiner un bouclier/aura électrique autour du vaisseau
-        let rayonAura = Math.max(rocket.width, rocket.height) * 0.65;
-        let pulse = 5 * Math.sin(surchargeTimer * 0.3); // Effet de vibration numérique
-        
-        ctx.beginPath();
-        ctx.arc(centreX, centreY, rayonAura + pulse, 0, 2 * Math.PI);
-        ctx.strokeStyle = "rgba(96, 165, 250, 0.8)";
-        ctx.lineWidth = 4;
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "#3b82f6";
-        ctx.stroke();
-
-        // 2. Traînées de particules d'énergie sous le vaisseau
-        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-        for (let j = 0; j < 3; j++) {
-            let px = rocket.x + Math.random() * rocket.width;
-            let py = rocket.y + rocket.height + Math.random() * 30;
-            ctx.fillRect(px, py, 4, 12);
+        if (Math.floor(surchargeTimer / 4) % 2 === 0) {
+            // Un coup sur deux, on applique un filtre de lumière néon bleu intense
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = "#3b82f6";
+            // Dessin d'un cercle bouclier bien visible
+            ctx.beginPath();
+            ctx.arc(centreX, rocket.y + rocket.height/2, Math.max(rocket.width, rocket.height)*0.6, 0, 2*Math.PI);
+            ctx.strokeStyle = "#60a5fa";
+            ctx.lineWidth = 3;
+            ctx.stroke();
         }
-
-        // Effet d'éclat global sur le sprite
-        ctx.globalAlpha = 0.9;
     }
 
     if (assetsPrets.fusee) {
         ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
     } else {
         ctx.font = "52px Arial"; ctx.textAlign = "center"; 
-        // Si surchargé sans les images, on ajoute de la postcombustion textuelle !
-        ctx.fillText(surchargeActive ? "⚡🚀🔥" : "🚀", centreX, rocket.y + 45);
+        ctx.fillText(surchargeActive ? "⚡🚀⚡" : "🚀", centreX, rocket.y + 45);
     }
     ctx.restore();
 }
