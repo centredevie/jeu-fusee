@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance - Débloqué</title>
+    <title>Montée en puissance - Ajusté</title>
     <style>
         * {
             box-sizing: border-box;
@@ -234,7 +234,7 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie & Surcharge
-let energie = 50; 
+let energie = 55; 
 const energieMax = 100;
 let surchargeActive = false;
 let surchargeTimer = 0;
@@ -268,9 +268,9 @@ function scheduleNextSpawn() {
 
     let vActuelle = Math.max(1.0, gameSpeed / 4.0);
     
-    // Garde-fou mathématique strict pour éviter le blocage (valeurs NaN ou < 0)
-    let delaiBaseMin = 750;
-    let delaiBaseMax = 1400;
+    // Accélération globale des spawns pour suivre le rythme du drain mécanique
+    let delaiBaseMin = 650;
+    let delaiBaseMax = 1200;
 
     let delaiMin = delaiBaseMin / Math.sqrt(vActuelle);
     let delaiMax = delaiBaseMax / Math.sqrt(vActuelle);
@@ -278,8 +278,8 @@ function scheduleNextSpawn() {
     let alpha = getProgressionFactor();
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
     
-    // Sécurisation absolue de l'horloge : jamais en dessous de 350ms pour préserver le CPU
-    tempsAttente = Math.max(350, tempsAttente);
+    // Plancher abaissé à 280ms pour densifier les propositions d'objets à v=3.0+
+    tempsAttente = Math.max(280, tempsAttente);
     if (surchargeActive) tempsAttente *= 0.75; 
 
     setTimeout(() => {
@@ -299,16 +299,18 @@ function genererFluxStructure(vActuelle) {
     else phaseActuelle = 5;
 
     if (pileObjetsProgrammes.length === 0) {
+        // CORRECTION RATIO BOOST/OBSTACLE : Injection contrôlée pour stopper la panne sèche
         if (phaseActuelle === 1) {
             pileObjetsProgrammes = ["booster", "obstacle", "booster"];
         } else if (phaseActuelle === 2) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle"]);
         } else if (phaseActuelle === 3) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle", "obstacle"]);
         } else if (phaseActuelle === 4) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle"]);
+            // Maximum deux obstacles consécutifs autorisés avant un reset de booster obligatoire
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle", "obstacle"]);
         } else {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle"]);
         }
     }
 
@@ -447,10 +449,10 @@ function update() {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    // Drain linéaire sécurisé
-    let drainActuel = 4.0 + (vActuelle * 1.8); 
+    // Drain équilibré pour la survie linéaire
+    let drainActuel = 4.0 + (vActuelle * 1.7); 
     if (surchargeActive) {
-        drainActuel = (6.0 + (vActuelle * 3.0)); 
+        drainActuel = (6.0 + (vActuelle * 2.8)); 
     }
 
     energie -= drainActuel * (1/60);
@@ -514,9 +516,11 @@ function update() {
 
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                let apportEnergie = 16; 
+                // ÉQUILIBRAGE SANS FAUTE : Apport remonté à +20. 
+                // Permet de tenir le rythme face au drain, mais un seul raté vide la réserve de perfection !
+                let apportEnergie = 20; 
                 
-                // LE SANS FAUTE ABSOLU : Seuil calé à 99% pour absorber les micro-arrondis JavaScript
+                // Exigence de perfection maintenue à 99%
                 if (energie >= 99.0 && !surchargeActive) {
                     surchargeActive = true;
                     surchargeTimer = 210; 
