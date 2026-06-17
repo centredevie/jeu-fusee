@@ -277,7 +277,6 @@ function scheduleNextSpawn() {
     if (vActuelle < 1.2) {
         delaiMin = 600; delaiMax = 1200;
     } else if (vActuelle >= 1.2 && vActuelle < 1.8) {
-        // Ralentissement de la cadence globale en Phase 2 pour digérer les satellites
         delaiMin = 700; delaiMax = 1300;
     } else if (vActuelle >= 1.8 && vActuelle < 2.6) {
         delaiMin = 500; delaiMax = 1000;
@@ -315,14 +314,14 @@ function genererFluxStructure(vActuelle) {
         if (phaseActuelle === 1) {
             pileObjetsProgrammes = ["booster", "booster"];
         } else if (phaseActuelle === 2) {
-            // CORRECTION DENSITÉ : Moins d'obstacles d'un coup, plus de boosters intercalés
-            pileObjetsProgrammes = mélangerTableau(["booster", "booster", "obstacle"]);
+            // AJUSTEMENT : Un seul booster par lot de 4 éléments pour raréfier leur présence
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
         } else if (phaseActuelle === 3) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
         } else if (phaseActuelle === 4) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle", "obstacle"]);
         } else {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "obstacle", "obstacle"]);
         }
     }
 
@@ -423,7 +422,7 @@ function update() {
             surchargeActive = false;
             jaugeFill.classList.remove("surcharge");
             alertBox.style.display = "none";
-            energie = 45; 
+            // MODIFICATION : On retire l'attribution automatique à 45%. La barre reste là où elle a chuté pendant le boost !
         }
     }
 
@@ -565,9 +564,9 @@ function draw() {
         if (!atteintEspaceEnHaut) {
             ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + cameraY, canvas.width, hEcran);
         } else {
-            // CORRECTION SCROLLING ESPACE : Utilisation du même ratio calculé à l'affichage pour éviter l'effet écrasé/coupé
-            ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + loopSpaceY, canvas.width, hEcran);
-            ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + loopSpaceY - canvas.height, canvas.width, hEcran);
+            // RESTAURATION : Rendu original parfait du défilement infini de l'espace
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY, canvas.width, canvas.height);
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY - canvas.height, canvas.width, canvas.height);
         }
     } else {
         ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height);
