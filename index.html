@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance - Équilibré</title>
+    <title>Montée en puissance - Superboost Ajusté</title>
     <style>
         * {
             box-sizing: border-box;
@@ -234,7 +234,7 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie & Surcharge
-let energie = 75; // Départ plus confortable pour installer le rythme
+let energie = 75; 
 const energieMax = 100;
 let surchargeActive = false;
 let surchargeTimer = 0;
@@ -445,7 +445,6 @@ function update() {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    // ÉQUILIBRAGE DU DRAIN : Courbe beaucoup plus douce à haute vitesse pour éviter la panne sèche injuste
     let drainActuel = 3.2 + (vActuelle * 1.1); 
     if (surchargeActive) {
         drainActuel = (5.0 + (vActuelle * 2.0)); 
@@ -455,4 +454,220 @@ function update() {
     if (energie <= 0) { energie = 0; declencherGameOver(); return; }
     jaugeFill.style.height = energie + "%";
 
-    let fuséePresente = items.some(item => item.sous
+    let fuséePresente = items.some(item => item.sousType === "missile");
+    if (surchargeActive) {
+        alertBox.innerText = "⚡ BOOSTER ACTIF ⚡"; 
+        alertBox.className = "alert-surchargé";
+        alertBox.style.display = "block";
+    } else if (vActuelle >= 3.5 && fuséePresente) {
+        alertBox.innerText = "🚨 ALERTE FUSEE 🚨";
+        alertBox.className = "alert-boss";
+        alertBox.style.display = "block";
+    } else {
+        alertBox.style.display = "none";
+    }
+
+    let vitesseReponse = surchargeActive ? 0.45 : 0.22;
+    rocket.x += (rocket.targetX - rocket.x) * vitesseReponse;
+
+    for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        
+        if (item.sousType === "missile") {
+            if (item.y > 100 && !item.allume) {
+                item.allume = true;
+                let centreRocket = rocket.x + rocket.width / 2;
+                let centreItem = item.x + item.width / 2;
+                let intensiteTracking = 0.02 + (alpha * 0.03);
+                item.vx = (centreRocket - centreItem) * intensiteTracking;
+                item.vx = Math.max(-4.5, Math.min(4.5, item.vx));
+            }
+            if (item.allume) {
+                let accelerationFusee = 0.03 + (alpha * 0.03);
+                let maxVitesseMissile = 1.10 + (alpha * 0.35); 
+                item.speedFactor = Math.min(maxVitesseMissile, item.speedFactor + accelerationFusee);
+            }
+        }
+
+        item.y += gameSpeed * item.speedFactor;
+        item.x += item.vx;
+
+        if (item.x < 0 || item.x + item.width > canvas.width) {
+            item.vx = -item.vx;
+        }
+
+        const scaleR = 0.65;
+        const scaleI = item.sousType === "satellite" ? 0.55 : (item.sousType === "missile" ? 0.60 : 0.70);
+
+        const rx = rocket.x + rocket.width * (1 - scaleR) / 2;
+        const ry = rocket.y + rocket.height * (1 - scaleR) / 2;
+        const rw = rocket.width * scaleR;
+        const rh = rocket.height * scaleR;
+
+        const ix = item.x + item.width * (1 - scaleI) / 2;
+        const iy = item.y + item.height * (1 - scaleI) / 2;
+        const iw = item.width * scaleI;
+        const ih = item.height * scaleI;
+
+        if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
+            if (item.type === "booster") {
+                let apportEnergie = 20; 
+                
+                // CONDITION DE VITESSE PLANCHER : N'autorise le Superboost qu'à partir de 1.5x de vitesse globale
+                if (vActuelle >= 1.5 && energie >= 99.0 && !surchargeActive) {
+                    surchargeActive = true;
+                    surchargeTimer = 210; 
+                    jaugeFill.classList.add("surcharge");
+                    score += 50; 
+                    energie = energieMax;
+                } else if (!surchargeActive) {
+                    energie = Math.min(energieMax, energie + apportEnergie); 
+                    score += 15;
+                } else {
+                    score += 30; 
+                }
+                
+                items.splice(i, 1);
+                document.getElementById("scoreText").innerText = score;
+                continue;
+            } else {
+                if (surchargeActive) {
+                    items.splice(i, 1); 
+                    score += 10; 
+                    document.getElementById("scoreText").innerText = score;
+                    continue;
+                } else {
+                    declencherGameOver();
+                    return;
+                }
+            }
+        }
+
+        if (item.y > canvas.height) {
+            items.splice(i, 1);
+            score += (item.type === "obstacle") ? (item.sousType === "missile" ? 8 : 2) : 1;
+            document.getElementById("scoreText").innerText = score;
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (assetsPrets.fond && imgFond.naturalHeight > 0) {
+        let ratio = canvas.width / imgFond.naturalWidth;
+        let hEcran = imgFond.naturalHeight * ratio;
+
+        if (!atteintEspaceEnHaut) {
+            ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + cameraY, canvas.width, hEcran);
+        } else {
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY, canvas.width, canvas.height);
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY - canvas.height, canvas.width, canvas.height);
+        }
+    } else {
+        ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    items.forEach(item => {
+        if (item.type === "obstacle") {
+            if (item.sousType === "satellite") {
+                if (assetsPrets.satellite) ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height);
+                else { ctx.font = "50px Arial"; ctx.textAlign = "center"; ctx.fillText("🛰️", item.x + item.width/2, item.y + 35); }
+            } else if (item.sousType === "missile") { 
+                if (assetsPrets.missile) {
+                    ctx.save();
+                    ctx.translate(item.x + item.width / 2, item.y + item.height / 2);
+                    ctx.rotate(-Math.atan2(item.vx, gameSpeed * item.speedFactor));
+                    ctx.drawImage(imgMissile, -item.width / 2, -item.height / 2, item.width, item.height);
+                    ctx.restore();
+                } else { 
+                    ctx.font = "48px Arial"; ctx.textAlign = "center"; 
+                    ctx.fillText(item.allume ? "🔥🚀" : "🚨🚀", item.x + item.width/2, item.y + 35); 
+                }
+            } else {
+                if (assetsPrets.meteorite) ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height);
+                else { ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.fillText("☄️", item.x + item.width/2, item.y + 30); }
+            }
+        } else {
+            if (assetsPrets.booster) ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height);
+            else { ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("🔋", item.x + item.width/2, item.y + 25); }
+        }
+    });
+
+    ctx.save();
+    let centreX = rocket.x + rocket.width / 2;
+
+    if (surchargeActive) {
+        if (Math.floor(surchargeTimer / 4) % 2 === 0) {
+            ctx.shadowBlur = 35;
+            ctx.shadowColor = "#3b82f6";
+            ctx.beginPath();
+            ctx.arc(centreX, rocket.y + rocket.height/2, Math.max(rocket.width, rocket.height)*0.62, 0, 2*Math.PI);
+            ctx.strokeStyle = "#60a5fa";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+    }
+
+    if (assetsPrets.fusee) {
+        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
+    } else {
+        ctx.font = "52px Arial"; ctx.textAlign = "center"; 
+        ctx.fillText(surchargeActive ? "⚡🚀⚡" : "🚀", centreX, rocket.y + 45);
+    }
+    ctx.restore();
+}
+
+function gameLoop() {
+    update();
+    draw();
+    if (!gameOver) requestAnimationFrame(gameLoop);
+}
+
+function declencherGameOver() {
+    gameOver = true;
+    document.getElementById("jauge-fill").classList.remove("surcharge");
+    document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
+    document.getElementById("game-over-screen").style.display = "flex";
+    
+    let pseudo = prompt("Entrez votre pseudo pour le classement :");
+    if (!pseudo || pseudo.trim() === "") pseudo = "Pilote Anonyme";
+
+    topScoresLocaux.push({ pseudo: pseudo, score: score });
+    topScoresLocaux.sort((a, b) => b.score - a.score);
+    afficherLeTableau(pseudo, score);
+
+    fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pseudo: pseudo, score: score })
+    }).catch(() => {});
+}
+
+function afficherLeTableau(monPseudo, monScore) {
+    let html = "";
+    if(topScoresLocaux.length === 0) {
+        html = '<div class="leaderboard-row"><span>Aucun enregistrement local.</span></div>';
+    } else {
+        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
+            let clr = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
+            html += `<div class="leaderboard-row" ${clr}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
+        });
+    }
+    document.getElementById("leaderboard-content").innerHTML = html;
+}
+
+function recommencer() { document.location.reload(); }
+
+function piloter(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    let ratioX = canvas.width / rect.width;
+    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * ratioX) - rocket.width / 2));
+}
+
+window.addEventListener("mousemove", (e) => piloter(e.clientX));
+window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
+</script>
+</body>
+</html>
