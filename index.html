@@ -234,7 +234,7 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie & Surcharge
-let energie = 60; // Plus de réserve au lancement
+let energie = 50; 
 const energieMax = 100;
 let surchargeActive = false;
 let surchargeTimer = 0;
@@ -252,12 +252,6 @@ prechargerScores();
 gameLoop();
 scheduleNextSpawn();
 
-function prechargerScores() {
-    fetch(SCRIPT_URL).then(res => res.json()).then(data => { 
-        if(Array.isArray(data)) { topScoresLocaux = data; afficherLeTableau("", 0); }
-    }).catch(() => {});
-}
-
 function getProgressionFactor() {
     let currentMult = gameSpeed / 4.0;
     let alpha = (currentMult - 1.0) / 3.0; 
@@ -268,25 +262,20 @@ function scheduleNextSpawn() {
     if (gameOver) return;
 
     let vActuelle = gameSpeed / 4.0;
-    let alpha = getProgressionFactor();
     
-    let delaiMin = 500; 
-    let delaiMax = 1200;
+    // RECALCUL DYNAMIQUE DU SPARK DE SPAWN : Plus le jeu va vite, plus les objets descendent vite,
+    // donc plus on réduit le délai de spawn pour maintenir une densité constante à l'écran.
+    let delaiBaseMin = 750;
+    let delaiBaseMax = 1400;
 
-    if (vActuelle < 1.2) {
-        delaiMin = 650; delaiMax = 1300;
-    } else if (vActuelle >= 1.2 && vActuelle < 1.8) {
-        delaiMin = 700; delaiMax = 1350;
-    } else if (vActuelle >= 1.8 && vActuelle < 2.6) {
-        delaiMin = 550; delaiMax = 1150; // Plus resserré pour injecter du carburant régulier
-    } else if (vActuelle >= 2.6 && vActuelle < 3.5) {
-        delaiMin = 450; delaiMax = 900;
-    } else if (vActuelle >= 3.5) {
-        delaiMin = 480; delaiMax = 950;
-    }
+    // Ajustement de la fréquence en fonction stricte de la vitesse globale (divisé par la vitesse relative)
+    let delaiMin = delaiBaseMin / Math.sqrt(vActuelle);
+    let delaiMax = delaiBaseMax / Math.sqrt(vActuelle);
 
+    let alpha = getProgressionFactor();
     let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
-    if (surchargeActive) tempsAttente *= 0.80; 
+    
+    if (surchargeActive) tempsAttente *= 0.75; 
 
     setTimeout(() => {
         genererFluxStructure(vActuelle);
@@ -310,24 +299,22 @@ function genererFluxStructure(vActuelle) {
     anciennePhaseReelle = phaseActuelle;
 
     if (pileObjetsProgrammes.length === 0) {
+        // EQUILIBRAGE FLUX GLOBAL : Remplacement des "vides" par une alternance stable de Boosters/Obstacles
         if (phaseActuelle === 1) {
-            pileObjetsProgrammes = ["booster", "rien", "booster"];
+            pileObjetsProgrammes = ["booster", "obstacle", "booster"];
         } else if (phaseActuelle === 2) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "rien", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster"]);
         } else if (phaseActuelle === 3) {
-            // Un peu moins de vides (rien) pour garantir l'apparition des boosters nécessaires
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle"]);
         } else if (phaseActuelle === 4) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "rien", "obstacle"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle"]);
         } else {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "rien", "obstacle", "obstacle", "rien"]);
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle", "obstacle"]);
         }
     }
 
     let typeChoisi = pileObjetsProgrammes.shift();
-    if (typeChoisi !== "rien") {
-        triggerSpawn(typeChoisi, vActuelle, phaseActuelle);
-    }
+    triggerSpawn(typeChoisi, vActuelle, phaseActuelle);
 }
 
 function mélangerTableau(arr) {
@@ -349,7 +336,10 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
 
     if (typeChoisi === "obstacle") {
         if (phaseActuelle === 1) {
-            return; 
+            sousType = "satellite";
+            const scale = 0.26;
+            itemWidth = 530 * scale; itemHeight = 415 * scale;
+            speedFactor = 0.30;
         } else if (phaseActuelle === 2) {
             sousType = "satellite";
             const scale = 0.26;
@@ -462,12 +452,11 @@ function update() {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    // RECALCUL LINÉAIRE DU DRAIN : Fini les paliers abrupts. Progression stable et fluide.
-    let drainActuel = 4.0 + (vActuelle * 2.0); 
+    // RECALCUL CONTINU DU DRAIN : Courbe stable basée uniquement sur la vitesse
+    let drainActuel = 4.0 + (vActuelle * 1.8); 
     
     if (surchargeActive) {
-        // En superboost, l'énergie descend de manière proportionnelle à la vitesse finale
-        drainActuel = (6.0 + (vActuelle * 3.5)); 
+        drainActuel = (6.0 + (vActuelle * 3.0)); 
     }
 
     energie -= drainActuel * (1/60);
@@ -532,11 +521,12 @@ function update() {
 
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                // AJUSTEMENT RENDEMENT : Un peu plus généreux pour compenser la vitesse moyenne
-                let apportEnergie = 26; 
+                // LA STRATEGIE DU SANS FAUTE : Rendement réduit. 
+                // Un seul pack ne suffit plus à combler un gros retard. Il faut TOUS les prendre.
+                let apportEnergie = 16; 
                 
-                // Condition de Surcharge tolérante (92%)
-                if (energie >= 92.0 && !surchargeActive) {
+                // TRIGGER DU SUPERBOOST STRICT : Uniquement si la jauge flirte avec le 100% absolu (>= 99.5%)
+                if (energie >= 99.5 && !surchargeActive) {
                     surchargeActive = true;
                     surchargeTimer = 210; 
                     jaugeFill.classList.add("surcharge");
