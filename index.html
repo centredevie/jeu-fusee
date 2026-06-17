@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance - Traversée Horizontale</title>
+    <title>Montée en puissance - Danger Unique</title>
     <style>
         * {
             box-sizing: border-box;
@@ -201,7 +201,11 @@ const imgMeteorite = new Image(); imgMeteorite.src = 'meteorite.png';
 const imgBooster = new Image(); imgBooster.src = 'booster.png';
 const imgSatellite = new Image(); imgSatellite.src = 'satellite.png';
 const imgMissile = new Image(); imgMissile.src = 'missile.png';
-const imgAvion = new Image(); imgAvion.src = 'avion.png'; 
+
+// Gestionnaire d'avion avec nettoyage de fond blanc forcé
+let imgAvion = new Image(); 
+imgAvion.crossOrigin = "anonymous"; 
+imgAvion.src = 'avion.png';
 
 let assetsPrets = { fond: false, fusee: false, meteorite: false, booster: false, satellite: false, missile: false, avion: false };
 imgFond.onload = () => assetsPrets.fond = true;
@@ -209,7 +213,37 @@ imgMeteorite.onload = () => assetsPrets.meteorite = true;
 imgBooster.onload = () => assetsPrets.booster = true;
 imgSatellite.onload = () => assetsPrets.satellite = true;
 imgMissile.onload = () => assetsPrets.missile = true;
-imgAvion.onload = () => assetsPrets.avion = true;
+
+imgAvion.onload = () => {
+    // Rendre transparent le fond blanc si l'image en contient un artificiellement
+    try {
+        let tempCanvas = document.createElement('canvas');
+        let tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = imgAvion.width;
+        tempCanvas.height = imgAvion.height;
+        tempCtx.drawImage(imgAvion, 0, 0);
+        
+        let imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        let data = imgData.data;
+        
+        // Parcourir les pixels pour supprimer le blanc pur ou quasi-blanc
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
+                data[i+3] = 0; // Alpha à 0 (transparent)
+            }
+        }
+        tempCtx.putImageData(imgData, 0, 0);
+        let cleanImg = new Image();
+        cleanImg.src = tempCanvas.toDataURL();
+        cleanImg.onload = () => {
+            imgAvion = cleanImg;
+            assetsPrets.avion = true;
+        };
+    } catch(e) {
+        // Fallback si restriction de domaine locale
+        assetsPrets.avion = true;
+    }
+};
 
 const rocketBaseW = 60;
 const rocket = {
@@ -269,7 +303,6 @@ function scheduleNextSpawn() {
     if (gameOver) return;
 
     let vActuelle = Math.max(1.0, gameSpeed / 4.0);
-    
     let delaiBaseMin = 650;
     let delaiBaseMax = 1200;
 
@@ -313,6 +346,13 @@ function genererFluxStructure(vActuelle) {
     }
 
     let typeChoisi = pileObjetsProgrammes.shift() || "booster";
+
+    // CONTROLE STRICT : Si on demande un obstacle en Phase 2 mais qu'un avion existe déjà, on le transforme temporairement en booster pour éviter les doublons
+    let avionExisteDeja = items.some(item => item.sousType === "avion");
+    if (phaseActuelle === 2 && typeChoisi === "obstacle" && avionExisteDeja) {
+        typeChoisi = "booster";
+    }
+
     triggerSpawn(typeChoisi, vActuelle, phaseActuelle);
 }
 
@@ -336,24 +376,21 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
 
     if (typeChoisi === "obstacle") {
         if (phaseActuelle === 2) {
-            // COMPORTEMENT DIAGONAL DE L'AVION (Plus grand, défilement horizontal lent + descente)
+            // COMPORTEMENT DIAGONAL UNIQUE ET LENT
             sousType = "avion";
-            const scale = 0.35; // Augmenté pour rendre l'avion plus grand et menaçant
+            const scale = 0.38; // Avion massif bien visible
             itemWidth = 500 * scale; 
             itemHeight = 174 * scale;
             
-            // speedFactor à 0.15 permet une descente verticale lente et progressive
-            speedFactor = 0.15; 
+            // Chute verticale lente et calculée pour couper la trajectoire de la fusée
+            speedFactor = 0.12; 
 
-            // Choisit un côté de départ au hasard (Gauche ou Droite)
             let partDeGauche = Math.random() < 0.5;
             xInitial = partDeGauche ? -itemWidth : canvas.width;
             
-            // Vitesse horizontale tranquille et constante (entre 2.0 et 3.0 px/frame)
-            let vitesseVol = 2.0 + Math.random() * 1.0;
+            // Vitesse de croisière horizontale lente (1.5 à 2.2 px par frame)
+            let vitesseVol = 1.5 + Math.random() * 0.7;
             vx = partDeGauche ? vitesseVol : -vitesseVol;
-
-            // Apparaît tout en haut pour entamer sa descente en diagonale
             yInitial = -itemHeight; 
 
         } else if (phaseActuelle === 3) {
@@ -494,23 +531,23 @@ function update() {
             }
         }
 
-        // Déplacement standard (vertical + horizontal)
+        // Déplacement vertical + horizontal
         item.y += gameSpeed * item.speedFactor;
         item.x += item.vx;
 
-        // Rebond sur les murs UNIQUEMENT pour les météorites et satellites (Pas pour l'avion qui traverse !)
+        // Rebond sur les murs uniquement pour météorites et satellites (Pas pour l'avion)
         if (item.sousType !== "avion") {
             if (item.x < 0 || item.x + item.width > canvas.width) {
                 item.vx = -item.vx;
             }
         }
 
-        // Masques de collision
+        // Masques de collision ajustés
         const scaleR = 0.65;
         let scaleI = 0.70;
         if (item.sousType === "satellite") scaleI = 0.55;
         else if (item.sousType === "missile") scaleI = 0.60;
-        else if (item.sousType === "avion") scaleI = 0.75; 
+        else if (item.sousType === "avion") scaleI = 0.70; 
 
         const rx = rocket.x + rocket.width * (1 - scaleR) / 2;
         const ry = rocket.y + rocket.height * (1 - scaleR) / 2;
@@ -556,14 +593,14 @@ function update() {
             }
         }
 
-        // Nettoyage quand l'objet sort complètement des limites
-        if (item.y > canvas.height || item.x > canvas.width + 150 || item.x < -item.width - 150) {
+        // Nettoyage de sortie
+        if (item.y > canvas.height || item.x > canvas.width + 200 || item.x < -item.width - 200) {
             items.splice(i, 1);
             let pointsGagnes = 1;
             if (item.type === "obstacle") {
                 if (item.sousType === "missile") pointsGagnes = 8;
                 else if (item.sousType === "satellite") pointsGagnes = 3;
-                else if (item.sousType === "avion") pointsGagnes = 3; // Augmenté car plus difficile à esquiver désormais
+                else if (item.sousType === "avion") pointsGagnes = 5; // Revalorisé car l'esquive est stratégique
                 else pointsGagnes = 2;
             }
             score += pointsGagnes;
@@ -603,7 +640,7 @@ function draw() {
                     }
                     ctx.restore();
                 } else { 
-                    ctx.font = "40px Arial"; ctx.textAlign = "center"; 
+                    ctx.font = "42px Arial"; ctx.textAlign = "center"; 
                     let emojiAvion = item.vx > 0 ? "✈️" : "🛩️";
                     ctx.fillText(emojiAvion, item.x + item.width/2, item.y + 30); 
                 }
