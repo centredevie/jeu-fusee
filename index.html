@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance - Danger Unique</title>
+    <title>Montée en puissance - Trajectoire de Danger</title>
     <style>
         * {
             box-sizing: border-box;
@@ -215,7 +215,7 @@ imgSatellite.onload = () => assetsPrets.satellite = true;
 imgMissile.onload = () => assetsPrets.missile = true;
 
 imgAvion.onload = () => {
-    // Rendre transparent le fond blanc si l'image en contient un artificiellement
+    // Nettoyer le fond blanc si l'image est mal encodée
     try {
         let tempCanvas = document.createElement('canvas');
         let tempCtx = tempCanvas.getContext('2d');
@@ -226,10 +226,10 @@ imgAvion.onload = () => {
         let imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
         let data = imgData.data;
         
-        // Parcourir les pixels pour supprimer le blanc pur ou quasi-blanc
+        // Supprimer le blanc pur (255,255,255)
         for (let i = 0; i < data.length; i += 4) {
             if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
-                data[i+3] = 0; // Alpha à 0 (transparent)
+                data[i+3] = 0; 
             }
         }
         tempCtx.putImageData(imgData, 0, 0);
@@ -239,10 +239,7 @@ imgAvion.onload = () => {
             imgAvion = cleanImg;
             assetsPrets.avion = true;
         };
-    } catch(e) {
-        // Fallback si restriction de domaine locale
-        assetsPrets.avion = true;
-    }
+    } catch(e) { assetsPrets.avion = true; }
 };
 
 const rocketBaseW = 60;
@@ -261,350 +258,158 @@ imgFusee.onload = () => {
 };
 
 // --- PARAMÈTRES DE JEU ÉVOLUTIFS ---
-let score = 0;
-let baseSpeed = 4.0; 
-let gameSpeed = 4.0;
-let timeElapsed = 0;
-let gameOver = false;
-let items = [];
-let topScoresLocaux = [];
-
-// Énergie & Surcharge
-let energie = 75; 
-const energieMax = 100;
-let surchargeActive = false;
-let surchargeTimer = 0;
-
-// Scrolling background
-let cameraY = 0;
-let loopSpaceY = 0;
-let atteintEspaceEnHaut = false;
-
-// File d'attente de pattern
-let pileObjetsProgrammes = [];
+let score = 0, baseSpeed = 4.0, gameSpeed = 4.0, timeElapsed = 0, gameOver = false, items = [], topScoresLocaux = [], energie = 75, surchargeActive = false, surchargeTimer = 0, cameraY = 0, loopSpaceY = 0, atteintEspaceEnHaut = false, pileObjetsProgrammes = [];
 
 prechargerScores();
 gameLoop();
 scheduleNextSpawn();
 
-function prechargerScores() {
-    fetch(SCRIPT_URL).then(res => res.json()).then(data => { 
-        if(Array.isArray(data)) { topScoresLocaux = data; afficherLeTableau("", 0); }
-    }).catch(() => {});
-}
-
-function getProgressionFactor() {
-    let currentMult = gameSpeed / 4.0;
-    let alpha = (currentMult - 1.0) / 3.5; 
-    return Math.max(0.0, Math.min(1.0, alpha));
-}
+function prechargerScores() { fetch(SCRIPT_URL).then(res => res.json()).then(data => { if(Array.isArray(data)) { topScoresLocaux = data; afficherLeTableau("", 0); } }).catch(() => {}); }
+function getProgressionFactor() { let currentMult = gameSpeed / 4.0; return Math.max(0.0, Math.min(1.0, (currentMult - 1.0) / 3.5)); }
+function mélangerTableau(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
 
 function scheduleNextSpawn() {
     if (gameOver) return;
-
     let vActuelle = Math.max(1.0, gameSpeed / 4.0);
-    let delaiBaseMin = 650;
-    let delaiBaseMax = 1200;
-
-    let delaiMin = delaiBaseMin / Math.sqrt(vActuelle);
-    let delaiMax = delaiBaseMax / Math.sqrt(vActuelle);
-
     let alpha = getProgressionFactor();
-    let tempsAttente = delaiMax - (alpha * (delaiMax - delaiMin));
-    
+    let tempsAttente = (1200 / Math.sqrt(vActuelle)) - (alpha * ((1200 - 650) / Math.sqrt(vActuelle)));
     tempsAttente = Math.max(280, tempsAttente);
     if (surchargeActive) tempsAttente *= 0.75; 
-
-    setTimeout(() => {
-        genererFluxStructure(vActuelle);
-        scheduleNextSpawn();
-    }, tempsAttente);
+    setTimeout(() => { genererFluxStructure(vActuelle); scheduleNextSpawn(); }, tempsAttente);
 }
 
 function genererFluxStructure(vActuelle) {
     if (gameOver) return;
-
     let phaseActuelle = 1;
-    if (vActuelle < 1.5) phaseActuelle = 1;         
-    else if (vActuelle >= 1.5 && vActuelle < 2.0) phaseActuelle = 2; // Zone Atmosphérique (Avions)
-    else if (vActuelle >= 2.0 && vActuelle < 2.6) phaseActuelle = 3; // Orbite Basse (Satellites)
-    else if (vActuelle >= 2.6 && vActuelle < 3.5) phaseActuelle = 4; // Espace (Météorites)
-    else phaseActuelle = 5;                                          
+    if (vActuelle < 1.5) phaseActuelle = 1; else if (vActuelle < 2.0) phaseActuelle = 2; else if (vActuelle < 2.6) phaseActuelle = 3; else if (vActuelle < 3.5) phaseActuelle = 4; else phaseActuelle = 5;
 
     if (pileObjetsProgrammes.length === 0) {
-        if (phaseActuelle === 1) {
-            pileObjetsProgrammes = ["booster", "booster"]; 
-        } else if (phaseActuelle === 2) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle"]);
-        } else if (phaseActuelle === 3) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle", "obstacle"]);
-        } else if (phaseActuelle === 4) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle", "obstacle"]);
-        } else {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle"]);
-        }
+        if (phaseActuelle === 1) pileObjetsProgrammes = ["booster", "booster"]; 
+        else if (phaseActuelle === 2) pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle"]);
+        else if (phaseActuelle === 3) pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle", "obstacle"]);
+        else if (phaseActuelle === 4) pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "booster", "obstacle", "obstacle"]);
+        else pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "booster", "obstacle", "obstacle"]);
     }
-
     let typeChoisi = pileObjetsProgrammes.shift() || "booster";
-
-    // CONTROLE STRICT : Si on demande un obstacle en Phase 2 mais qu'un avion existe déjà, on le transforme temporairement en booster pour éviter les doublons
     let avionExisteDeja = items.some(item => item.sousType === "avion");
-    if (phaseActuelle === 2 && typeChoisi === "obstacle" && avionExisteDeja) {
-        typeChoisi = "booster";
-    }
-
+    if (phaseActuelle === 2 && typeChoisi === "obstacle" && avionExisteDeja) { typeChoisi = "booster"; } // Un seul avion à la fois
     triggerSpawn(typeChoisi, vActuelle, phaseActuelle);
 }
 
-function mélangerTableau(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-}
-
 function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
-    let sousType = "avion";
-    let itemWidth, itemHeight, speedFactor = 1.0;
-    let vx = 0;
-    let xInitial = Math.random() * (canvas.width - 80);
-    let yInitial = -100; 
+    let sousType = "avion", itemWidth, itemHeight, speedFactor = 1.0, vx = 0, xInitial = Math.random() * (canvas.width - 80), yInitial = -100;
     let alpha = getProgressionFactor();
-
-    let fuséePresente = items.some(item => item.sousType === "missile");
 
     if (typeChoisi === "obstacle") {
         if (phaseActuelle === 2) {
-            // COMPORTEMENT DIAGONAL UNIQUE ET LENT
+            // CORRECTION : L'AVION ENTRÉ PAR LA DROITE + CHUTE
             sousType = "avion";
-            const scale = 0.38; // Avion massif bien visible
+            const scale = 0.38;
             itemWidth = 500 * scale; 
             itemHeight = 174 * scale;
             
-            // Chute verticale lente et calculée pour couper la trajectoire de la fusée
-            speedFactor = 0.12; 
+            // Chute verticale (speedFactor) augmente pour représenter un danger
+            speedFactor = 0.30; 
 
-            let partDeGauche = Math.random() < 0.5;
-            xInitial = partDeGauche ? -itemWidth : canvas.width;
+            // Forcer l'entrée par la droite de l'écran
+            xInitial = canvas.width;
             
-            // Vitesse de croisière horizontale lente (1.5 à 2.2 px par frame)
-            let vitesseVol = 1.5 + Math.random() * 0.7;
-            vx = partDeGauche ? vitesseVol : -vitesseVol;
-            yInitial = -itemHeight; 
+            // Vitesse horizontale négative pour traverser vers la gauche (tranquille : -2.5 px)
+            vx = -2.5; 
+            
+            // Hauteur aléatoire dans la moitié haute pour commencer sa chute
+            yInitial = 80 + Math.random() * 200; 
 
         } else if (phaseActuelle === 3) {
-            sousType = "satellite";
-            const scale = 0.26;
-            itemWidth = 530 * scale; itemHeight = 415 * scale;
-            speedFactor = 0.35;
-            vx = (Math.random() - 0.5) * 0.2;
-            yInitial = -itemHeight;
+            sousType = "satellite"; const scale = 0.26; itemWidth = 137; itemHeight = 107; speedFactor = 0.35; vx = (Math.random() - 0.5) * 0.2; yInitial = -itemHeight;
         } else if (phaseActuelle === 4) {
-            sousType = "meteorite";
-            const scale = 0.11 + (Math.random() * 0.08);
-            itemWidth = 435 * scale; itemHeight = 410 * scale;
-            speedFactor = 0.65 + (alpha * 0.15); 
-            vx = (Math.random() - 0.5) * (2.0 + alpha * 1.5); 
-            yInitial = -itemHeight;
+            sousType = "meteorite"; itemWidth = 60; itemHeight = 60; speedFactor = 0.70; vx = (Math.random() - 0.5) * 3; yInitial = -itemHeight;
         } else {
+            let fuséePresente = items.some(item => item.sousType === "missile");
             if (!fuséePresente && Math.random() < 0.35) {
-                sousType = "missile"; 
-                const scale = 0.20; 
-                itemWidth = 170 * scale; itemHeight = 486 * scale;
-                speedFactor = 0.10; 
-                let centreRocket = rocket.x + rocket.width / 2;
-                let centreItem = xInitial + itemWidth / 2;
-                vx = (centreRocket - centreItem) * 0.004; 
-                yInitial = -itemHeight;
+                sousType = "missile"; itemWidth = 34; itemHeight = 97; speedFactor = 0.10; vx = 0; yInitial = -itemHeight;
             } else {
-                sousType = "meteorite";
-                const scale = 0.11 + (Math.random() * 0.07);
-                itemWidth = 435 * scale; itemHeight = 410 * scale;
-                speedFactor = 0.80;
-                vx = (Math.random() - 0.5) * 3.5;
-                yInitial = -itemHeight;
+                sousType = "meteorite"; itemWidth = 60; itemHeight = 60; speedFactor = 0.80; vx = (Math.random() - 0.5) * 3.5; yInitial = -itemHeight;
             }
         }
     } else {
-        const scale = 0.24;
-        itemWidth = 500 * scale; itemHeight = 281 * scale;
-        speedFactor = 0.85;
-        sousType = "booster";
-        yInitial = -itemHeight;
+        itemWidth = 120; itemHeight = 67; speedFactor = 0.85; sousType = "booster"; yInitial = -itemHeight;
     }
 
-    let satellitesEnEcran = items.some(item => item.sousType === "satellite");
-    let decalageSecurite = (phaseActuelle === 3 && typeChoisi === "obstacle" && satellitesEnEcran) ? 150 : 0;
-
-    items.push({
-        x: xInitial,
-        y: yInitial - decalageSecurite,
-        width: itemWidth,
-        height: itemHeight,
-        type: typeChoisi,
-        sousType: sousType,
-        speedFactor: speedFactor,
-        vx: vx,
-        allume: false
-    });
+    let decalageSecurite = (phaseActuelle === 3 && typeChoisi === "obstacle" && items.some(i => i.sousType === "satellite")) ? 150 : 0;
+    items.push({ x: xInitial, y: yInitial - decalageSecurite, width: itemWidth, height: itemHeight, type: typeChoisi, sousType: sousType, speedFactor: speedFactor, vx: vx, allume: false });
 }
 
 function update() {
     if (gameOver) return;
 
-    let alertBox = document.getElementById("alert-box");
-    let jaugeFill = document.getElementById("jauge-fill");
-
     if (surchargeActive) {
         surchargeTimer--;
-        if (surchargeTimer <= 0) {
-            surchargeActive = false;
-            jaugeFill.classList.remove("surcharge");
-            alertBox.style.display = "none";
-        }
+        if (surchargeTimer <= 0) { surchargeActive = false; document.getElementById("jauge-fill").classList.remove("surcharge"); document.getElementById("alert-box").style.display = "none"; }
     }
 
     if (assetsPrets.fond && imgFond.naturalHeight > 0) {
-        let ratio = canvas.width / imgFond.naturalWidth;
-        let hEcran = imgFond.naturalHeight * ratio;
-        let seuil = hEcran - canvas.height;
-
-        let multiplicateurVisuel = surchargeActive ? 2.5 : 1.0;
+        let multi = surchargeActive ? 2.5 : 1.0;
         if (!atteintEspaceEnHaut) {
-            cameraY += gameSpeed * 0.25 * multiplicateurVisuel;
-            if (cameraY >= seuil) { atteintEspaceEnHaut = true; loopSpaceY = 0; }
-        } else {
-            loopSpaceY = (loopSpaceY + gameSpeed * 0.25 * multiplicateurVisuel) % canvas.height;
-        }
+            cameraY += gameSpeed * 0.25 * multi;
+            if (cameraY >= (imgFond.naturalHeight * (canvas.width / imgFond.naturalWidth) - canvas.height)) { atteintEspaceEnHaut = true; loopSpaceY = 0; }
+        } else { loopSpaceY = (loopSpaceY + gameSpeed * 0.25 * multi) % canvas.height; }
     }
 
     timeElapsed += 1;
-    gameSpeed = baseSpeed + Math.log(1 + timeElapsed * 0.001) * 6.5;
-    if (gameSpeed > 18.0) gameSpeed = 18.0; 
-
-    let alpha = getProgressionFactor();
+    gameSpeed = Math.min(18.0, baseSpeed + Math.log(1 + timeElapsed * 0.001) * 6.5);
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    let drainActuel = 3.2 + (vActuelle * 1.1); 
-    if (surchargeActive) {
-        drainActuel = (5.0 + (vActuelle * 2.0)); 
-    }
-
-    energie -= drainActuel * (1/60);
+    let drain = surchargeActive ? (5.0 + vActuelle * 2.0) : (3.2 + vActuelle * 1.1);
+    energie -= drain * (1/60);
     if (energie <= 0) { energie = 0; declencherGameOver(); return; }
-    jaugeFill.style.height = energie + "%";
+    document.getElementById("jauge-fill").style.height = energie + "%";
 
     let fuséePresente = items.some(item => item.sousType === "missile");
-    if (surchargeActive) {
-        alertBox.innerText = "⚡ SUPERBOOST ACTIF ⚡"; 
-        alertBox.className = "alert-surchargé";
-        alertBox.style.display = "block";
-    } else if (vActuelle >= 3.5 && fuséePresente) {
-        alertBox.innerText = "🚨 ALERTE FUSEE 🚨";
-        alertBox.className = "alert-boss";
-        alertBox.style.display = "block";
-    } else {
-        alertBox.style.display = "none";
-    }
+    let alertBox = document.getElementById("alert-box");
+    if (surchargeActive) { alertBox.innerText = "⚡ SUPERBOOST ACTIF ⚡"; alertBox.className = "alert-surchargé"; alertBox.style.display = "block"; } 
+    else if (vActuelle >= 3.5 && fuséePresente) { alertBox.innerText = "🚨 ALERTE FUSEE 🚨"; alertBox.className = "alert-boss"; alertBox.style.display = "block"; } 
+    else { alertBox.style.display = "none"; }
 
-    let vitesseReponse = surchargeActive ? 0.45 : 0.22;
-    rocket.x += (rocket.targetX - rocket.x) * vitesseReponse;
+    rocket.x += (rocket.targetX - rocket.x) * (surchargeActive ? 0.45 : 0.22);
 
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
         
         if (item.sousType === "missile") {
-            if (item.y > 100 && !item.allume) {
-                item.allume = true;
-                let centreRocket = rocket.x + rocket.width / 2;
-                let centreItem = item.x + item.width / 2;
-                let intensiteTracking = 0.02 + (alpha * 0.03);
-                item.vx = (centreRocket - centreItem) * intensiteTracking;
-                item.vx = Math.max(-4.5, Math.min(4.5, item.vx));
-            }
-            if (item.allume) {
-                let accelerationFusee = 0.03 + (alpha * 0.03);
-                let maxVitesseMissile = 1.10 + (alpha * 0.35); 
-                item.speedFactor = Math.min(maxVitesseMissile, item.speedFactor + accelerationFusee);
-            }
+            if (item.y > 100 && !item.allume) { item.allume = true; let multi = 0.02 + getProgressionFactor() * 0.03; item.vx = Math.max(-4.5, Math.min(4.5, (rocket.x - item.x) * multi)); }
+            if (item.allume) { item.speedFactor = Math.min(1.10 + getProgressionFactor() * 0.35, item.speedFactor + 0.03); }
         }
 
-        // Déplacement vertical + horizontal
         item.y += gameSpeed * item.speedFactor;
         item.x += item.vx;
 
         // Rebond sur les murs uniquement pour météorites et satellites (Pas pour l'avion)
-        if (item.sousType !== "avion") {
-            if (item.x < 0 || item.x + item.width > canvas.width) {
-                item.vx = -item.vx;
-            }
-        }
+        if (item.sousType !== "avion") { if (item.x < 0 || item.x + item.width > canvas.width) { item.vx = -item.vx; } }
 
-        // Masques de collision ajustés
+        // Masques de collision
         const scaleR = 0.65;
-        let scaleI = 0.70;
-        if (item.sousType === "satellite") scaleI = 0.55;
-        else if (item.sousType === "missile") scaleI = 0.60;
-        else if (item.sousType === "avion") scaleI = 0.70; 
-
-        const rx = rocket.x + rocket.width * (1 - scaleR) / 2;
-        const ry = rocket.y + rocket.height * (1 - scaleR) / 2;
-        const rw = rocket.width * scaleR;
-        const rh = rocket.height * scaleR;
-
-        const ix = item.x + item.width * (1 - scaleI) / 2;
-        const iy = item.y + item.height * (1 - scaleI) / 2;
-        const iw = item.width * scaleI;
-        const ih = item.height * scaleI;
+        let scaleI = (item.sousType === "satellite") ? 0.55 : (item.sousType === "missile") ? 0.60 : (item.sousType === "avion") ? 0.70 : 0.70; 
+        
+        let rw = rocket.width * scaleR, rh = rocket.height * scaleR;
+        let rx = rocket.x + (rocket.width - rw)/2, ry = rocket.y + (rocket.height - rh)/2;
+        let iw = item.width * scaleI, ih = item.height * scaleI;
+        let ix = item.x + (item.width - iw)/2, iy = item.y + (item.height - ih)/2;
 
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                let apportEnergie = 20; 
-                let energieApresRecup = energie + apportEnergie;
-
-                if (vActuelle >= 3.5 && energieApresRecup >= 99.5 && !surchargeActive) {
-                    surchargeActive = true;
-                    surchargeTimer = 210; 
-                    jaugeFill.classList.add("surcharge");
-                    score += 50; 
-                    energie = energieMax;
-                } else if (!surchargeActive) {
-                    energie = Math.min(energieMax, energie + apportEnergie); 
-                    score += 15;
-                } else {
-                    score += 30; 
-                }
-                
+                if (vActuelle >= 3.5 && energie + 20 >= 99.5 && !surchargeActive) { surchargeActive = true; surchargeTimer = 210; document.getElementById("jauge-fill").classList.add("surcharge"); score += 50; energie = energieMax; } 
+                else if (!surchargeActive) { energie = Math.min(energieMax, energie + 20); score += 15; } 
+                else { score += 30; }
                 items.splice(i, 1);
-                document.getElementById("scoreText").innerText = score;
-                continue;
-            } else {
-                if (surchargeActive) {
-                    items.splice(i, 1); 
-                    score += 10; 
-                    document.getElementById("scoreText").innerText = score;
-                    continue;
-                } else {
-                    declencherGameOver();
-                    return;
-                }
-            }
+            } else { if (surchargeActive) { items.splice(i, 1); score += 10; } else { declencherGameOver(); return; } }
+            document.getElementById("scoreText").innerText = score; continue;
         }
 
-        // Nettoyage de sortie
         if (item.y > canvas.height || item.x > canvas.width + 200 || item.x < -item.width - 200) {
             items.splice(i, 1);
-            let pointsGagnes = 1;
-            if (item.type === "obstacle") {
-                if (item.sousType === "missile") pointsGagnes = 8;
-                else if (item.sousType === "satellite") pointsGagnes = 3;
-                else if (item.sousType === "avion") pointsGagnes = 5; // Revalorisé car l'esquive est stratégique
-                else pointsGagnes = 2;
-            }
-            score += pointsGagnes;
-            document.getElementById("scoreText").innerText = score;
+            if (item.type === "obstacle") { score += (item.sousType === "missile") ? 8 : (item.sousType === "satellite") ? 3 : (item.sousType === "avion") ? 5 : 2; document.getElementById("scoreText").innerText = score; }
         }
     }
 }
@@ -613,132 +418,35 @@ function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (assetsPrets.fond && imgFond.naturalHeight > 0) {
-        let ratio = canvas.width / imgFond.naturalWidth;
-        let hEcran = imgFond.naturalHeight * ratio;
-
-        if (!atteintEspaceEnHaut) {
-            ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + cameraY, canvas.width, hEcran);
-        } else {
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY, canvas.width, canvas.height);
-            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY - canvas.height, canvas.width, canvas.height);
-        }
-    } else {
-        ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+        let multi = canvas.width / imgFond.naturalWidth, h = imgFond.naturalHeight * multi;
+        if (!atteintEspaceEnHaut) { ctx.drawImage(imgFond, 0, -(h - canvas.height) + cameraY, canvas.width, h); } 
+        else { ctx.drawImage(imgFond, 0, loopSpaceY, canvas.width, canvas.height); ctx.drawImage(imgFond, 0, loopSpaceY - canvas.height, canvas.width, canvas.height); }
+    } else { ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (item.sousType === "avion") {
                 if (assetsPrets.avion) {
                     ctx.save();
-                    if (item.vx < 0) {
-                        ctx.translate(item.x + item.width, item.y);
-                        ctx.scale(-1, 1);
-                        ctx.drawImage(imgAvion, 0, 0, item.width, item.height);
-                    } else {
-                        ctx.drawImage(imgAvion, item.x, item.y, item.width, item.height);
-                    }
+                    // Miroir horizontal de l'image (si vx < 0, l'image est inversée pour voler vers la gauche)
+                    if (item.vx < 0) { ctx.translate(item.x + item.width, item.y); ctx.scale(-1, 1); ctx.drawImage(imgAvion, 0, 0, item.width, item.height); } 
+                    else { ctx.drawImage(imgAvion, item.x, item.y, item.width, item.height); }
                     ctx.restore();
-                } else { 
-                    ctx.font = "42px Arial"; ctx.textAlign = "center"; 
-                    let emojiAvion = item.vx > 0 ? "✈️" : "🛩️";
-                    ctx.fillText(emojiAvion, item.x + item.width/2, item.y + 30); 
-                }
-            } else if (item.sousType === "satellite") {
-                if (assetsPrets.satellite) ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height);
-                else { ctx.font = "50px Arial"; ctx.textAlign = "center"; ctx.fillText("🛰️", item.x + item.width/2, item.y + 35); }
-            } else if (item.sousType === "missile") { 
-                if (assetsPrets.missile) {
-                    ctx.save();
-                    ctx.translate(item.x + item.width / 2, item.y + item.height / 2);
-                    ctx.rotate(-Math.atan2(item.vx, gameSpeed * item.speedFactor));
-                    ctx.drawImage(imgMissile, -item.width / 2, -item.height / 2, item.width, item.height);
-                    ctx.restore();
-                } else { 
-                    ctx.font = "48px Arial"; ctx.textAlign = "center"; 
-                    ctx.fillText(item.allume ? "🔥🚀" : "🚨🚀", item.x + item.width/2, item.y + 35); 
-                }
-            } else {
-                if (assetsPrets.meteorite) ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height);
-                else { ctx.font = "38px Arial"; ctx.textAlign = "center"; ctx.fillText("☄️", item.x + item.width/2, item.y + 30); }
-            }
-        } else {
-            if (assetsPrets.booster) ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height);
-            else { ctx.font = "35px Arial"; ctx.textAlign = "center"; ctx.fillText("🔋", item.x + item.width/2, item.y + 25); }
-        }
+                } else { ctx.font = "42px Arial"; ctx.textAlign = "center"; ctx.fillText(item.vx > 0 ? "✈️" : "🛩️", item.x + item.width/2, item.y + 30); }
+            } else if (item.sousType === "satellite") { if (assetsPrets.satellite) ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height); else { ctx.font = "50px Arial"; ctx.fillText("🛰️", item.x + item.width/2, item.y + 35); }
+            } else if (item.sousType === "missile") { if (assetsPrets.missile) { ctx.save(); ctx.translate(item.x + item.width/2, item.y + item.height/2); ctx.rotate(-Math.atan2(item.vx, gameSpeed * item.speedFactor)); ctx.drawImage(imgMissile, -item.width/2, -item.height/2, item.width, item.height); ctx.restore(); } else { ctx.font = "48px Arial"; ctx.fillText(item.allume ? "🔥🚀" : "🚨🚀", item.x + item.width/2, item.y + 35); }
+            } else { if (assetsPrets.meteorite) ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height); else { ctx.font = "38px Arial"; ctx.fillText("☄️", item.x + item.width/2, item.y + 30); } }
+        } else { if (assetsPrets.booster) ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height); else { ctx.font = "35px Arial"; ctx.fillText("🔋", item.x + item.width/2, item.y + 25); } }
     });
 
-    ctx.save();
-    let centreX = rocket.x + rocket.width / 2;
-
-    if (surchargeActive) {
-        if (Math.floor(surchargeTimer / 4) % 2 === 0) {
-            ctx.shadowBlur = 35;
-            ctx.shadowColor = "#3b82f6";
-            ctx.beginPath();
-            ctx.arc(centreX, rocket.y + rocket.height/2, Math.max(rocket.width, rocket.height)*0.62, 0, 2*Math.PI);
-            ctx.strokeStyle = "#60a5fa";
-            ctx.lineWidth = 4;
-            ctx.stroke();
-        }
-    }
-
-    if (assetsPrets.fusee) {
-        ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height);
-    } else {
-        ctx.font = "52px Arial"; ctx.textAlign = "center"; 
-        ctx.fillText(surchargeActive ? "⚡🚀⚡" : "🚀", centreX, rocket.y + 45);
-    }
-    ctx.restore();
+    if (assetsPrets.fusee) { ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height); } else { ctx.font = "52px Arial"; ctx.fillText("🚀", rocket.x + rocket.width/2, rocket.y + 45); }
 }
 
-function gameLoop() {
-    update();
-    draw();
-    if (!gameOver) requestAnimationFrame(gameLoop);
-}
-
-function declencherGameOver() {
-    gameOver = true;
-    document.getElementById("jauge-fill").classList.remove("surcharge");
-    document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡";
-    document.getElementById("game-over-screen").style.display = "flex";
-    
-    let pseudo = prompt("Entrez votre pseudo pour le classement :");
-    if (!pseudo || pseudo.trim() === "") pseudo = "Pilote Anonyme";
-
-    topScoresLocaux.push({ pseudo: pseudo, score: score });
-    topScoresLocaux.sort((a, b) => b.score - a.score);
-    afficherLeTableau(pseudo, score);
-
-    fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pseudo: pseudo, score: score })
-    }).catch(() => {});
-}
-
-function afficherLeTableau(monPseudo, monScore) {
-    let html = "";
-    if(topScoresLocaux.length === 0) {
-        html = '<div class="leaderboard-row"><span>Aucun enregistrement local.</span></div>';
-    } else {
-        topScoresLocaux.slice(0, 5).forEach((joueur, index) => {
-            let clr = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : '';
-            html += `<div class="leaderboard-row" ${clr}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`;
-        });
-    }
-    document.getElementById("leaderboard-content").innerHTML = html;
-}
-
+function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
+function declencherGameOver() { gameOver = true; document.getElementById("jauge-fill").classList.remove("surcharge"); document.getElementById("final-score-text").innerText = "Votre puissance finale : " + score + " ⚡"; document.getElementById("game-over-screen").style.display = "flex"; let pseudo = prompt("Pseudo :"); if (!pseudo || pseudo.trim() === "") pseudo = "Pilote Anonyme"; topScoresLocaux.push({ pseudo: pseudo, score: score }); topScoresLocaux.sort((a, b) => b.score - a.score); afficherLeTableau(pseudo, score); fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pseudo: pseudo, score: score }) }).catch(() => {}); }
+function afficherLeTableau(monPseudo, monScore) { let html = ""; topScoresLocaux.slice(0, 5).forEach((joueur, index) => { let clr = joueur.pseudo === monPseudo && joueur.score === monScore ? 'style="color:#f59e0b; font-weight:bold;"' : ''; html += `<div class="leaderboard-row" ${clr}><span>${index+1}. ${joueur.pseudo}</span><span>${joueur.score} ⚡</span></div>`; }); document.getElementById("leaderboard-content").innerHTML = html; }
 function recommencer() { document.location.reload(); }
-
-function piloter(clientX) {
-    const rect = canvas.getBoundingClientRect();
-    let ratioX = canvas.width / rect.width;
-    rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * ratioX) - rocket.width / 2));
-}
+function piloter(clientX) { const rect = canvas.getBoundingClientRect(); rocket.targetX = Math.max(0, Math.min(canvas.width - rocket.width, ((clientX - rect.left) * (canvas.width / rect.width)) - rocket.width / 2)); }
 
 window.addEventListener("mousemove", (e) => piloter(e.clientX));
 window.addEventListener("touchmove", (e) => { if(e.touches.length > 0) piloter(e.touches[0].clientX); }, { passive: false });
