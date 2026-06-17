@@ -234,9 +234,9 @@ let items = [];
 let topScoresLocaux = [];
 
 // Énergie & Surcharge
-let energie = 40; // Légèrement augmenté le départ pour donner du souffle
+let energie = 35; 
 const energieMax = 100;
-const drainInitial = 4.5; 
+const drainInitial = 5.0; // Légèrement augmenté le drain de base
 let surchargeActive = false;
 let surchargeTimer = 0;
 
@@ -275,15 +275,14 @@ function scheduleNextSpawn() {
     let delaiMax = 1200;
 
     if (vActuelle < 1.2) {
-        delaiMin = 700; delaiMax = 1400;
+        delaiMin = 750; delaiMax = 1450;
     } else if (vActuelle >= 1.2 && vActuelle < 1.8) {
-        delaiMin = 800; delaiMax = 1500;
+        delaiMin = 850; delaiMax = 1550;
     } else if (vActuelle >= 1.8 && vActuelle < 2.6) {
         delaiMin = 650; delaiMax = 1300;
     } else if (vActuelle >= 2.6 && vActuelle < 3.5) {
         delaiMin = 450; delaiMax = 900;
     } else if (vActuelle >= 3.5) {
-        // AJUSTEMENT : On ralentit un tout petit peu le rythme global final pour contrer le spam mécanique
         delaiMin = 480; delaiMax = 950;
     }
 
@@ -313,15 +312,16 @@ function genererFluxStructure(vActuelle) {
 
     if (pileObjetsProgrammes.length === 0) {
         if (phaseActuelle === 1) {
-            pileObjetsProgrammes = ["booster", "booster"];
+            // CORRECTION : Espacement des boosters dès le début du jeu
+            pileObjetsProgrammes = ["booster", "rien", "rien", "booster", "rien"];
         } else if (phaseActuelle === 2) {
-            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle"]);
+            // Raréfaction renforcée avant v=2.2
+            pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "rien", "rien"]);
         } else if (phaseActuelle === 3) {
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "rien", "obstacle"]);
         } else if (phaseActuelle === 4) {
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "rien", "obstacle"]);
         } else {
-            // CORRECTION FLUX : Beaucoup moins de boosters à la fin (1 seul sur un lot de 7 slots)
             pileObjetsProgrammes = mélangerTableau(["booster", "obstacle", "obstacle", "rien", "obstacle", "obstacle", "rien"]);
         }
     }
@@ -464,12 +464,10 @@ function update() {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    let drainActuel = drainInitial * (1.0 + alpha * 1.3); 
-    if (alpha < 0.15) drainActuel *= 0.5; 
+    let drainActuel = drainInitial * (1.0 + alpha * 1.5); 
+    if (alpha < 0.15) drainActuel *= 0.55; 
     
-    // CORRECTION FIN DE PARTIE : Le drain augmente fortement avec la vitesse en mode surcharge
     if (surchargeActive) {
-        // Plus la vitesse globale est élevée, plus le drain du superboost est punitif pour éviter le blocage à 100%
         drainActuel *= (0.65 + (alpha * 1.2)); 
     }
 
@@ -535,10 +533,10 @@ function update() {
 
         if (rx < ix + iw && rx + rw > ix && ry < iy + ih && ry + rh > iy) {
             if (item.type === "booster") {
-                // AJUSTEMENT RECHARGE : Plus généreuse au début (+30) pour déstresser la recherche de pack
-                let apportEnergie = 30 * (1.0 - (alpha * 0.35));
+                let apportEnergie = 25 * (1.0 - (alpha * 0.35));
                 
-                if ((energie + apportEnergie) >= energieMax && !surchargeActive) {
+                // REECRITURE CONDITION : Il faut obligatoirement avoir touché le plafond des 100% pour entrer en surcharge
+                if (energie >= 99.9 && !surchargeActive) {
                     surchargeActive = true;
                     surchargeTimer = 210; 
                     jaugeFill.classList.add("surcharge");
