@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance - Trajectoire de Danger</title>
+    <title>Montée en puissance - Stress Initial</title>
     <style>
         * {
             box-sizing: border-box;
@@ -94,7 +94,7 @@
         }
         #jauge-fill {
             width: 100%;
-            height: 75%;
+            height: 40%; /* Modifié graphiquement aussi pour démarrer à 40% */
             background: linear-gradient(to top, #f59e0b, #ef4444);
             transition: height 0.1s linear;
         }
@@ -256,8 +256,8 @@ imgFusee.onload = () => {
 
 // --- PARAMÈTRES DE JEU ÉVOLUTIFS ---
 let score = 0, baseSpeed = 4.0, gameSpeed = 4.0, timeElapsed = 0, gameOver = false, items = [], topScoresLocaux = [];
-let energie = 75;
-const energieMax = 100; // FIX : Remis en place ici pour éviter le crash au contact du boost !
+let energie = 40; // AJUSTEMENT : Jauge initiale baissée à 40% pour mettre la pression d'entrée !
+const energieMax = 100; 
 let surchargeActive = false, surchargeTimer = 0, cameraY = 0, loopSpaceY = 0, atteintEspaceEnHaut = false, pileObjetsProgrammes = [];
 
 prechargerScores();
@@ -306,28 +306,29 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
             const scale = 0.38;
             itemWidth = 500 * scale; 
             itemHeight = 174 * scale;
-            speedFactor = 0.30; 
-            xInitial = canvas.width;
-            vx = -2.5; 
+            speedFactor = 0.30; // Chute en diagonale conservée
+            xInitial = canvas.width; // Pop à droite
+            vx = -2.5; // Traverse vers la gauche
             yInitial = 80 + Math.random() * 200; 
 
         } else if (phaseActuelle === 3) {
-            sousType = "satellite"; itemWidth = 137; itemHeight = 107; speedFactor = 0.35; vx = (Math.random() - 0.5) * 0.2; yInitial = -itemHeight;
+            sousType = "satellite"; const scale = 0.26; itemWidth = 530 * scale; itemHeight = 415 * scale; speedFactor = 0.35; vx = (Math.random() - 0.5) * 0.2; yInitial = -itemHeight;
         } else if (phaseActuelle === 4) {
-            sousType = "meteorite"; itemWidth = 60; itemHeight = 60; speedFactor = 0.70; vx = (Math.random() - 0.5) * 3; yInitial = -itemHeight;
+            sousType = "meteorite"; const scale = 0.11 + (Math.random() * 0.08); itemWidth = 435 * scale; itemHeight = 410 * scale; speedFactor = 0.65 + (alpha * 0.15); vx = (Math.random() - 0.5) * (2.0 + alpha * 1.5); yInitial = -itemHeight;
         } else {
             let fuséePresente = items.some(item => item.sousType === "missile");
             if (!fuséePresente && Math.random() < 0.35) {
-                sousType = "missile"; itemWidth = 34; itemHeight = 97; speedFactor = 0.10; vx = 0; yInitial = -itemHeight;
+                sousType = "missile"; const scale = 0.20; itemWidth = 170 * scale; itemHeight = 486 * scale; speedFactor = 0.10; let centreRocket = rocket.x + rocket.width / 2; let centreItem = xInitial + itemWidth / 2; vx = (centreRocket - centreItem) * 0.004; yInitial = -itemHeight;
             } else {
-                sousType = "meteorite"; itemWidth = 60; itemHeight = 60; speedFactor = 0.80; vx = (Math.random() - 0.5) * 3.5; yInitial = -itemHeight;
+                sousType = "meteorite"; const scale = 0.11 + (Math.random() * 0.07); itemWidth = 435 * scale; itemHeight = 410 * scale; speedFactor = 0.80; vx = (Math.random() - 0.5) * 3.5; yInitial = -itemHeight;
             }
         }
     } else {
-        itemWidth = 120; itemHeight = 67; speedFactor = 0.85; sousType = "booster"; yInitial = -itemHeight;
+        const scale = 0.24; itemWidth = 500 * scale; itemHeight = 281 * scale; speedFactor = 0.85; sousType = "booster"; yInitial = -itemHeight;
     }
 
-    let decalageSecurite = (phaseActuelle === 3 && typeChoisi === "obstacle" && items.some(i => i.sousType === "satellite")) ? 150 : 0;
+    let satellitesEnEcran = items.some(item => item.sousType === "satellite");
+    let decalageSecurite = (phaseActuelle === 3 && typeChoisi === "obstacle" && satellitesEnEcran) ? 150 : 0;
     items.push({ x: xInitial, y: yInitial - decalageSecurite, width: itemWidth, height: itemHeight, type: typeChoisi, sousType: sousType, speedFactor: speedFactor, vx: vx, allume: false });
 }
 
@@ -339,12 +340,19 @@ function update() {
         if (surchargeTimer <= 0) { surchargeActive = false; document.getElementById("jauge-fill").classList.remove("surcharge"); document.getElementById("alert-box").style.display = "none"; }
     }
 
+    // RETOUR DU CODE PRÉCÉDENT QUI MARCHAIR POUR LE DEFILEMENT DU FOND
     if (assetsPrets.fond && imgFond.naturalHeight > 0) {
-        let multi = surchargeActive ? 2.5 : 1.0;
+        let ratio = canvas.width / imgFond.naturalWidth;
+        let hEcran = imgFond.naturalHeight * ratio;
+        let seuil = hEcran - canvas.height;
+
+        let multiplicateurVisuel = surchargeActive ? 2.5 : 1.0;
         if (!atteintEspaceEnHaut) {
-            cameraY += gameSpeed * 0.25 * multi;
-            if (cameraY >= (imgFond.naturalHeight * (canvas.width / imgFond.naturalWidth) - canvas.height)) { atteintEspaceEnHaut = true; loopSpaceY = 0; }
-        } else { loopSpaceY = (loopSpaceY + gameSpeed * 0.25 * multi) % canvas.height; }
+            cameraY += gameSpeed * 0.25 * multiplicateurVisuel;
+            if (cameraY >= seuil) { atteintEspaceEnHaut = true; loopSpaceY = 0; }
+        } else {
+            loopSpaceY = (loopSpaceY + gameSpeed * 0.25 * multiplicateurVisuel) % canvas.height;
+        }
     }
 
     timeElapsed += 1;
@@ -406,28 +414,46 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // CODE RESTAURÉ DU PARFAIT DÉFILEMENT DE FOND
     if (assetsPrets.fond && imgFond.naturalHeight > 0) {
-        let multi = canvas.width / imgFond.naturalWidth, h = imgFond.naturalHeight * multi;
-        if (!atteintEspaceEnHaut) { ctx.drawImage(imgFond, 0, -(h - canvas.height) + cameraY, canvas.width, h); } 
-        else { ctx.drawImage(imgFond, 0, loopSpaceY, canvas.width, canvas.height); ctx.drawImage(imgFond, 0, loopSpaceY - canvas.height, canvas.width, canvas.height); }
-    } else { ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        let ratio = canvas.width / imgFond.naturalWidth;
+        let hEcran = imgFond.naturalHeight * ratio;
+
+        if (!atteintEspaceEnHaut) {
+            ctx.drawImage(imgFond, 0, - (hEcran - canvas.height) + cameraY, canvas.width, hEcran);
+        } else {
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY, canvas.width, canvas.height);
+            ctx.drawImage(imgFond, 0, 0, imgFond.naturalWidth, imgFond.naturalWidth * (canvas.height / canvas.width), 0, loopSpaceY - canvas.height, canvas.width, canvas.height);
+        }
+    } else {
+        ctx.fillStyle = "#0b0f19"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (item.sousType === "avion") {
                 if (assetsPrets.avion) {
-                    ctx.save();
-                    if (item.vx < 0) { ctx.translate(item.x + item.width, item.y); ctx.scale(-1, 1); ctx.drawImage(imgAvion, 0, 0, item.width, item.height); } 
-                    else { ctx.drawImage(imgAvion, item.x, item.y, item.width, item.height); }
-                    ctx.restore();
-                } else { ctx.font = "42px Arial"; ctx.textAlign = "center"; ctx.fillText(item.vx > 0 ? "✈️" : "🛩️", item.x + item.width/2, item.y + 30); }
+                    // FIX : Suppression de l'inversion scale(-1, 1). L'image s'affiche brute et va vers la gauche.
+                    ctx.drawImage(imgAvion, item.x, item.y, item.width, item.height);
+                } else { ctx.font = "42px Arial"; ctx.textAlign = "center"; ctx.fillText("🛩️", item.x + item.width/2, item.y + 30); }
             } else if (item.sousType === "satellite") { if (assetsPrets.satellite) ctx.drawImage(imgSatellite, item.x, item.y, item.width, item.height); else { ctx.font = "50px Arial"; ctx.fillText("🛰️", item.x + item.width/2, item.y + 35); }
             } else if (item.sousType === "missile") { if (assetsPrets.missile) { ctx.save(); ctx.translate(item.x + item.width/2, item.y + item.height/2); ctx.rotate(-Math.atan2(item.vx, gameSpeed * item.speedFactor)); ctx.drawImage(imgMissile, -item.width/2, -item.height/2, item.width, item.height); ctx.restore(); } else { ctx.font = "48px Arial"; ctx.fillText(item.allume ? "🔥🚀" : "🚨🚀", item.x + item.width/2, item.y + 35); }
             } else { if (assetsPrets.meteorite) ctx.drawImage(imgMeteorite, item.x, item.y, item.width, item.height); else { ctx.font = "38px Arial"; ctx.fillText("☄️", item.x + item.width/2, item.y + 30); } }
         } else { if (assetsPrets.booster) ctx.drawImage(imgBooster, item.x, item.y, item.width, item.height); else { ctx.font = "35px Arial"; ctx.fillText("🔋", item.x + item.width/2, item.y + 25); } }
     });
 
+    ctx.save();
+    let centreX = rocket.x + rocket.width / 2;
+    if (surchargeActive) {
+        if (Math.floor(surchargeTimer / 4) % 2 === 0) {
+            ctx.shadowBlur = 35; ctx.shadowColor = "#3b82f6"; ctx.beginPath();
+            ctx.arc(centreX, rocket.y + rocket.height/2, Math.max(rocket.width, rocket.height)*0.62, 0, 2*Math.PI);
+            ctx.strokeStyle = "#60a5fa"; ctx.lineWidth = 4; ctx.stroke();
+        }
+    }
+
     if (assetsPrets.fusee) { ctx.drawImage(imgFusee, rocket.x, rocket.y, rocket.width, rocket.height); } else { ctx.font = "52px Arial"; ctx.fillText("🚀", rocket.x + rocket.width/2, rocket.y + 45); }
+    ctx.restore();
 }
 
 function gameLoop() { update(); draw(); if (!gameOver) requestAnimationFrame(gameLoop); }
