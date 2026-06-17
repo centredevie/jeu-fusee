@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Montée en puissance - Superboost Ajusté</title>
+    <title>Montée en puissance - Vmax 4.5 & Superboost Fixé</title>
     <style>
         * {
             box-sizing: border-box;
@@ -259,7 +259,8 @@ function prechargerScores() {
 
 function getProgressionFactor() {
     let currentMult = gameSpeed / 4.0;
-    let alpha = (currentMult - 1.0) / 3.0; 
+    // Adapté pour s'étendre linéairement jusqu'à la nouvelle Vmax de 4.5x
+    let alpha = (currentMult - 1.0) / 3.5; 
     return Math.max(0.0, Math.min(1.0, alpha));
 }
 
@@ -438,8 +439,9 @@ function update() {
     }
 
     timeElapsed += 1;
-    gameSpeed = baseSpeed + Math.log(1 + timeElapsed * 0.001) * 5.8;
-    if (gameSpeed > 16.0) gameSpeed = 16.0;
+    // Logarithme lissé pour atteindre la Vmax cible de 4.5x (soit une gameSpeed de 18.0)
+    gameSpeed = baseSpeed + Math.log(1 + timeElapsed * 0.001) * 6.5;
+    if (gameSpeed > 18.0) gameSpeed = 18.0; 
 
     let alpha = getProgressionFactor();
     let vActuelle = gameSpeed / 4.0;
@@ -456,7 +458,7 @@ function update() {
 
     let fuséePresente = items.some(item => item.sousType === "missile");
     if (surchargeActive) {
-        alertBox.innerText = "⚡ BOOSTER ACTIF ⚡"; 
+        alertBox.innerText = "⚡ SUPERBOOST ACTIF ⚡"; 
         alertBox.className = "alert-surchargé";
         alertBox.style.display = "block";
     } else if (vActuelle >= 3.5 && fuséePresente) {
@@ -513,14 +515,18 @@ function update() {
             if (item.type === "booster") {
                 let apportEnergie = 20; 
                 
-                // CONDITION DE VITESSE PLANCHER : N'autorise le Superboost qu'à partir de 1.5x de vitesse globale
-                if (vActuelle >= 1.5 && energie >= 99.0 && !surchargeActive) {
+                // RESOLUTION DU BUG DE JAUGE MAX : Calcul prédictif incluant le gain immédiat
+                let energieApresRecup = energie + apportEnergie;
+
+                // Condition réajustée : Vitesse >= 3.5x (arrivée des missiles) et jauge pleine / débordante
+                if (vActuelle >= 3.5 && energieApresRecup >= 99.5 && !surchargeActive) {
                     surchargeActive = true;
                     surchargeTimer = 210; 
                     jaugeFill.classList.add("surcharge");
                     score += 50; 
                     energie = energieMax;
                 } else if (!surchargeActive) {
+                    // Si on est en dessous de 3.5x, la jauge se remplit normalement sans bloquer
                     energie = Math.min(energieMax, energie + apportEnergie); 
                     score += 15;
                 } else {
