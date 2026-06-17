@@ -203,8 +203,7 @@ const imgSatellite = new Image(); imgSatellite.src = 'satellite.png';
 const imgMissile = new Image(); imgMissile.src = 'missile.png';
 
 let imgAvion = new Image(); 
-imgAvion.crossOrigin = "anonymous"; 
-imgAvion.src = 'avion.png';
+imgAvion.src = 'avion.png'; // Plus besoin du crossOrigin anonyme problématique en local
 
 let assetsPrets = { fond: false, fusee: false, meteorite: false, booster: false, satellite: false, missile: false, avion: false };
 imgFond.onload = () => assetsPrets.fond = true;
@@ -213,30 +212,9 @@ imgBooster.onload = () => assetsPrets.booster = true;
 imgSatellite.onload = () => assetsPrets.satellite = true;
 imgMissile.onload = () => assetsPrets.missile = true;
 
+// CORRECTION DU SCRIPT : Chargement direct et ultra simplifié de l'avion transparent
 imgAvion.onload = () => {
-    try {
-        let tempCanvas = document.createElement('canvas');
-        let tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = imgAvion.width;
-        tempCanvas.height = imgAvion.height;
-        tempCtx.drawImage(imgAvion, 0, 0);
-        
-        let imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        let data = imgData.data;
-        
-        for (let i = 0; i < data.length; i += 4) {
-            if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
-                data[i+3] = 0; 
-            }
-        }
-        tempCtx.putImageData(imgData, 0, 0);
-        let cleanImg = new Image();
-        cleanImg.src = tempCanvas.toDataURL();
-        cleanImg.onload = () => {
-            imgAvion = cleanImg;
-            assetsPrets.avion = true;
-        };
-    } catch(e) { assetsPrets.avion = true; }
+    assetsPrets.avion = true;
 };
 
 const rocketBaseW = 60;
@@ -273,7 +251,6 @@ function scheduleNextSpawn() {
     let vActuelle = Math.max(1.0, gameSpeed / 4.0);
     let alpha = getProgressionFactor();
     
-    // Le temps d'attente s'adapte de manière fluide
     let reductionTransition = (vActuelle >= 2.9 && vActuelle <= 3.5) ? 100 : 0;
     let tempsAttente = (1200 / Math.sqrt(vActuelle)) - (alpha * ((1200 - 650) / Math.sqrt(vActuelle))) - reductionTransition;
     tempsAttente = Math.max(270, tempsAttente);
@@ -322,14 +299,11 @@ function triggerSpawn(typeChoisi, vActuelle, phaseActuelle) {
         } else if (phaseActuelle === 3) {
             sousType = "satellite"; const scale = 0.26; itemWidth = 530 * scale; itemHeight = 415 * scale; speedFactor = 0.35; vx = (Math.random() - 0.5) * 0.2; yInitial = -itemHeight;
         } else if (phaseActuelle === 4) {
-            // PROGRESSION FLUIDE ET QUANTIFIÉE DES MÉTÉORITES
             sousType = "meteorite"; 
-            // Échelle indexée subtilement sur alpha (croissance douce)
             const scale = (0.11 + (alpha * 0.05)) + (Math.random() * 0.05); 
             itemWidth = 435 * scale; 
             itemHeight = 410 * scale; 
             speedFactor = 0.70 + (alpha * 0.12); 
-            // Vitesse oblique indexée sur la progression (plus vicieuse au fil du temps)
             vx = (Math.random() - 0.5) * (2.2 + alpha * 1.8); 
             yInitial = -itemHeight;
         } else {
@@ -400,7 +374,6 @@ function update() {
         item.y += gameSpeed * item.speedFactor;
         item.x += item.vx;
 
-        // PARFAIT : Seuls les satellites ricochent sur les parois de l'écran maintenant !
         if (item.sousType === "satellite") { 
             if (item.x < 0 || item.x + item.width > canvas.width) { item.vx = -item.vx; } 
         }
