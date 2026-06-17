@@ -130,7 +130,6 @@ function prechargerScores() {
 function update(timestamp) {
     if (gameOver) return;
 
-    // 1. Évolution de la vitesse globale (Courbe fluide et continue)
     timeElapsed++;
     gameSpeed = 4.0 + Math.log(1 + timeElapsed * 0.001) * 5.8;
     if (gameSpeed > 16.0) gameSpeed = 16.0;
@@ -138,7 +137,6 @@ function update(timestamp) {
     let vActuelle = gameSpeed / 4.0;
     document.getElementById("speedText").innerText = vActuelle.toFixed(1) + "x";
 
-    // 2. Gestion Jauge & Surcharge
     let jaugeFill = document.getElementById("jauge-fill");
     if (surchargeActive) {
         surchargeTimer--;
@@ -153,7 +151,6 @@ function update(timestamp) {
         jaugeFill.style.height = energie + "%";
     }
 
-    // 3. Gestion des alertes UI
     let alertBox = document.getElementById("alert-box");
     let missilePresent = items.some(item => item.sousType === "missile");
     if (surchargeActive) {
@@ -164,16 +161,16 @@ function update(timestamp) {
         alertBox.style.display = "none";
     }
 
-    // 4. Mouvement joueur
     rocket.x += (rocket.targetX - rocket.x) * (surchargeActive ? 0.45 : 0.22);
 
-    // 5. Moteur de génération (Spawn) optimisé sans file d'attente lourde
+    // Définition stricte des phases de jeu
     let phaseActive = 1;
     if (vActuelle >= 1.2 && vActuelle < 1.8) phaseActive = 2;
     else if (vActuelle >= 1.8 && vActuelle < 2.6) phaseActive = 3;
     else if (vActuelle >= 2.6 && vActuelle < 3.5) phaseActive = 4;
     else if (vActuelle >= 3.5) phaseActive = 5;
 
+    // Cadence d'apparition progressive globale
     let delaiSpawn = Math.max(350, 1100 - (vActuelle * 180));
     if (surchargeActive) delaiSpawn *= 0.65;
 
@@ -182,11 +179,9 @@ function update(timestamp) {
         dernierSpawnTime = timestamp;
     }
 
-    // 6. Mise à jour des objets et collisions
     for (let i = items.length - 1; i >= 0; i--) {
         let item = items[i];
         
-        // Comportement Missile autoguidé
         if (item.sousType === "missile") {
             if (item.y > 100 && !item.allume) item.allume = true;
             if (item.allume) {
@@ -199,7 +194,6 @@ function update(timestamp) {
         item.x += item.vx;
         if (item.x < 0 || item.x + item.width > canvas.width) item.vx = -item.vx;
 
-        // Hitbox prévisibles et ajustées (65% joueur, 60% obstacles)
         let rx = rocket.x + rocket.width * 0.17, ry = rocket.y + rocket.height * 0.17;
         let rw = rocket.width * 0.65, rh = rocket.height * 0.65;
         let ix = item.x + item.width * 0.2, iy = item.y + item.height * 0.2;
@@ -215,7 +209,7 @@ function update(timestamp) {
                 } else { score += 30; }
                 items.splice(i, 1);
             } else {
-                if (surchargeActive) { items.splice(i, 1); score += 10; } // Destruction d'obstacle en Surcharge
+                if (surchargeActive) { items.splice(i, 1); score += 10; }
                 else { declencherGameOver(); return; }
             }
             document.getElementById("scoreText").innerText = score;
@@ -229,7 +223,6 @@ function update(timestamp) {
         }
     }
 
-    // Background Scrolling
     if (images.fond.naturalHeight > 0) {
         let ratio = canvas.width / images.fond.naturalWidth;
         let hEcran = images.fond.naturalHeight * ratio;
@@ -247,33 +240,35 @@ function tenterSpawnObjet(phase, vActuelle) {
     let type = (Math.random() < 0.28) ? "booster" : "obstacle";
     let sousType = "meteorite", w = 40, h = 40, speedF = 0.7, vx = 0;
 
-    // Sécurité anti-télescopage : Ne pas spawner de météorites s'il reste des satellites de la phase 2
     let resteDesSatellites = items.some(it => it.sousType === "satellite");
 
     if (type === "obstacle") {
         switch(phase) {
-            case 1: return; // Pas d'obstacle en phase 1
+            case 1: return; // Phase 1 : Zéro obstacle, boosters uniquement
             case 2:
-                sousType = "satellite"; w = 137; h = 107; speedF = 0.32; vx = (Math.random() - 0.5) * 0.2;
+                // RECTIFICATION 2 : Diminution de la densité brute des satellites (générés uniquement 45% du temps)
+                if (Math.random() > 0.45) return; 
+                sousType = "satellite"; w = 137 * 0.26; h = 107 * 0.26; speedF = 0.32; vx = (Math.random() - 0.5) * 0.2;
                 break;
             case 3:
-                if (resteDesSatellites) return; // Attente passive de l'évacuation des satellites
-                sousType = "meteorite"; w = 50; h = 47; speedF = 0.6; vx = (Math.random() - 0.5) * 1.5;
+                if (resteDesSatellites) return; // Attente de la fin de la zone des satellites
+                sousType = "meteorite"; w = 52; h = 49; speedF = 0.6; vx = (Math.random() - 0.5) * 1.5;
                 break;
             case 4:
-                sousType = "meteorite"; w = 48; h = 45; speedF = 0.8; vx = (Math.random() - 0.5) * 3.5;
+                sousType = "meteorite"; w = 50; h = 47; speedF = 0.8; vx = (Math.random() - 0.5) * 3.5;
                 break;
             case 5:
                 let bossExiste = items.some(it => it.sousType === "missile");
                 if (!bossExiste && Math.random() < 0.35) {
                     sousType = "missile"; w = 34; h = 97; speedF = 0.1;
                 } else {
-                    sousType = "meteorite"; w = 46; h = 43; speedF = 0.9; vx = (Math.random() - 0.5) * 4.5;
+                    sousType = "meteorite"; w = 48; h = 45; speedF = 0.9; vx = (Math.random() - 0.5) * 4.5;
                 }
                 break;
         }
-    } else { // Configuration du Booster libre
-        w = 120 * 0.24; h = 67; speedF = 0.85;
+    } else { 
+        // RECTIFICATION 1 : Dimensions d'origines des Boosters rétablies (Ratio d'aspect préservé)
+        w = 52; h = 29; speedF = 0.85;
     }
 
     items.push({
@@ -285,7 +280,6 @@ function tenterSpawnObjet(phase, vActuelle) {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Dessin Fond
     if (images.fond.naturalHeight > 0) {
         let ratio = canvas.width / images.fond.naturalWidth;
         let hEcran = images.fond.naturalHeight * ratio;
@@ -297,7 +291,6 @@ function draw() {
         }
     }
 
-    // Dessin Éléments
     items.forEach(item => {
         if (item.type === "obstacle") {
             if (item.sousType === "satellite") ctx.drawImage(images.satellite, item.x, item.y, item.width, item.height);
@@ -310,7 +303,6 @@ function draw() {
         } else ctx.drawImage(images.booster, item.x, item.y, item.width, item.height);
     });
 
-    // Dessin Fusée + Bouclier quantique propre
     ctx.save();
     if (surchargeActive && Math.floor(surchargeTimer / 4) % 2 === 0) {
         ctx.shadowBlur = 30; ctx.shadowColor = "#3b82f6";
